@@ -82,7 +82,8 @@
 <body>
   <h1>Youtube Video Archive</h1>
 
-  [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  <a target="_blank" href="list.html" style=color:blue>List</a><br>
+  [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  <a target="_blank" href="list.html" style=color:blue>List</a> 
+[<a href="javascript:if(!window.location.href.includes('extendedsearch=true')){window.history.pushState({}, '', window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'extendedsearch=true');}">Enable RealtimeSearch</a>]<br>
   <div id="search-container">
     <input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
   </div>
@@ -90,126 +91,182 @@
   <div id="error"></div>
 
   <script>
-    (async () => {
-      const errorEl = document.getElementById('error');
-      const videosEl = document.getElementById('videos');
-      const searchInput = document.getElementById('search');
+  (async () => {
+  const errorEl = document.getElementById('error');
+  const videosEl = document.getElementById('videos');
+  const searchInput = document.getElementById('search');
 
-      // Helper: check if a URL is reachable with a GET request (timeout 5s)
-      async function isReachable(url) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-          const res = await fetch(url, { 
-            method: 'GET', 
-            signal: controller.signal 
-          });
-          clearTimeout(timeoutId);
-
-          // Only return true if the status is in the successful range
-          return res.ok || (res.status >= 300 && res.status < 400);
-        } catch (error) {
-          return false;
-        }
-      }
-
-      let videos = [];
-
-      // Render videos
-      function renderVideos(list) {
-        videosEl.innerHTML = '';
-        for (const v of list) {
-          const directOk = v.directOk;
-
-          const card = document.createElement('div');
-          card.className = 'card';
-
-          const videoSrc = directOk ? v.url : v.waybackurl; // Use Wayback URL if direct URL is not available
-
-          // HTML for rendering video card
-          card.innerHTML = `
-            <video src="${videoSrc}" controls preload="metadata"></video>
-            <h3>${v.title}</h3>
-            <p>Uploader: ${v.uploader}</p>
-            <p>ID: ${v.id ?? 'N/A'}</p>
-            <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
-            <div class="links">
-              <a href="${v.url}" target="_blank" class="${directOk ? '' : 'direct-unreachable'}">Direct</a>
-              <a href="${v.waybackurl}" target="_blank">Wayback</a>
-            </div>
-          `;
-
-          videosEl.appendChild(card);
-        }
-      }
-
-      try {
-        // Try loading the original videos.json first
-        const url = new URL('videos.json', location.href);
-        url.searchParams.set('_', Date.now()); // prevent cache
-        const res = await fetch(url.toString(), { cache: 'no-store' });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        }
-
-        videos = await res.json();
-      } catch (e) {
-        // If the original fails, load the external URL
-        const externalUrl = 'https://ry3yr.github.io/videos.json';
-        const res = await fetch(externalUrl, { cache: 'no-store' });
-
-        if (!res.ok) {
-          errorEl.textContent = 'Failed to load videos from both sources.';
-          return;
-        }
-
-        videos = await res.json();
-      }
-
-      // Parse limit query parameter
-      const params = new URLSearchParams(window.location.search);
-      const limit = parseInt(params.get('limit'));
-      const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
-      searchInput.placeholder = `Search ${videos.length} videos...`;
-      // Check reachability for each video and store directOk flag
-      for (const v of videos) {
-        v.directOk = await isReachable(v.url); // Check reachability before rendering
-      }
-
-      // Render the video list initially (limit applied only here)
-      renderVideos(limitedVideos);
-
-      // Handle search input filtering
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim().toLowerCase();
-        let filtered = videos;  // Search through all videos
-
-        if (query) {
-          filtered = videos.filter(v =>
-            (v.title && v.title.toLowerCase().includes(query)) ||
-            (v.uploader && v.uploader.toLowerCase().includes(query)) ||
-            (v.id && v.id.toString().toLowerCase().includes(query))
-          );
-        }
-
-        // Apply the limit again after filtering
-        if (limit > 0) {
-          filtered = filtered.slice(0, limit);
-        }
-
-        renderVideos(filtered);
+  // Helper: check if a URL is reachable with a GET request (timeout 5s)
+  async function isReachable(url) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { 
+        method: 'GET', 
+        signal: controller.signal 
       });
+      clearTimeout(timeoutId);
 
-      // Check if there is a 'videoid' query string and trigger the filter
-      const videoId = params.get('videoid');
-      if (videoId) {
-        searchInput.value = videoId; // Set input value to the 'videoid' query
-        // Manually trigger the input event after setting the search value
-        searchInput.dispatchEvent(new Event('input'));
+      // Only return true if the status is in the successful range
+      return res.ok || (res.status >= 300 && res.status < 400);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  let videos = [];
+
+  // Render videos
+  function renderVideos(list) {
+    videosEl.innerHTML = '';
+    for (const v of list) {
+      const directOk = v.directOk;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const videoSrc = directOk ? v.url : v.waybackurl; // Use Wayback URL if direct URL is not available
+
+      // HTML for rendering video card
+      card.innerHTML = `
+        <video src="${videoSrc}" controls preload="metadata"></video>
+        <h3>${v.title}</h3>
+        <p>Uploader: ${v.uploader}</p>
+        <p>ID: ${v.id ?? 'N/A'}</p>
+        <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+        <div class="links">
+          <a href="${v.url}" target="_blank" class="${directOk ? '' : 'direct-unreachable'}">Direct</a>
+          <a href="${v.waybackurl}" target="_blank">Wayback</a>
+        </div>
+      `;
+
+      videosEl.appendChild(card);
+    }
+  }
+
+  try {
+    // Try loading the original videos.json first
+    const url = new URL('videos.json', location.href);
+    url.searchParams.set('_', Date.now()); // prevent cache
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+
+    videos = await res.json();
+  } catch (e) {
+    // If the original fails, load the external URL
+    const externalUrl = 'https://ry3yr.github.io/videos.json';
+    const res = await fetch(externalUrl, { cache: 'no-store' });
+
+    if (!res.ok) {
+      errorEl.textContent = 'Failed to load videos from both sources.';
+      return;
+    }
+
+    videos = await res.json();
+  }
+
+  // Parse limit query parameter
+  const params = new URLSearchParams(window.location.search);
+  const limit = parseInt(params.get('limit'));
+  const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
+  searchInput.placeholder = `Search ${videos.length} videos...`;
+  
+  // Check reachability for each video and store directOk flag
+  for (const v of videos) {
+    v.directOk = await isReachable(v.url); // Check reachability before rendering
+  }
+
+  // Render the video list initially (limit applied only here)
+  renderVideos(limitedVideos);
+
+  // Determine if extended search should be active
+  const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
+
+  // If extended search is active, set localStorage flag and enable it
+  if (isExtendedSearchActive) {
+    if (!localStorage.getItem('extendedsearch')) {
+      localStorage.setItem('extendedsearch', 'true'); // Store in localStorage for future use
+    }
+
+    // Extended Search Functionality
+    const suggestionList = document.createElement('ul');
+    suggestionList.style.position = 'absolute';
+    suggestionList.style.maxHeight = '300px';
+    suggestionList.style.overflowY = 'auto';
+    suggestionList.style.width = '100%';
+    suggestionList.style.backgroundColor = '#fff';
+    suggestionList.style.border = '1px solid #ccc';
+    suggestionList.style.borderRadius = '6px';
+    suggestionList.style.zIndex = '10';
+    suggestionList.style.listStyle = 'none';
+    suggestionList.style.padding = '0';
+    suggestionList.style.margin = '0';
+    searchInput.parentElement.appendChild(suggestionList);
+
+    // Filter videos as you type
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      suggestionList.innerHTML = ''; // Clear previous suggestions
+
+      if (query) {
+        const filteredVideos = videos.filter(v => v.title.toLowerCase().includes(query));
+        filteredVideos.forEach(v => {
+          const suggestionItem = document.createElement('li');
+          suggestionItem.style.padding = '0.5rem';
+          suggestionItem.style.cursor = 'pointer';
+          suggestionItem.textContent = v.title;
+          suggestionItem.addEventListener('click', () => {
+            searchInput.value = v.title; // Prefill the search input with selected video title
+            suggestionList.innerHTML = ''; // Clear suggestions after selection
+            searchInput.dispatchEvent(new Event('input')); // Trigger filtering again
+          });
+          suggestionList.appendChild(suggestionItem);
+        });
       }
+    });
 
-    })();
+    // Close suggestions if input is focused elsewhere
+    searchInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        suggestionList.innerHTML = ''; // Clear suggestions after losing focus
+      }, 200);
+    });
+  }
+
+  // Handle search input filtering
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.trim().toLowerCase();
+    let filtered = videos;  // Search through all videos
+
+    if (query) {
+      filtered = videos.filter(v =>
+        (v.title && v.title.toLowerCase().includes(query)) ||
+        (v.uploader && v.uploader.toLowerCase().includes(query)) ||
+        (v.id && v.id.toString().toLowerCase().includes(query))
+      );
+    }
+
+    // Apply the limit again after filtering
+    if (limit > 0) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    renderVideos(filtered);
+  });
+
+  // Check if there is a 'videoid' query string and trigger the filter
+  const videoId = params.get('videoid');
+  if (videoId) {
+    searchInput.value = videoId; // Set input value to the 'videoid' query
+    // Manually trigger the input event after setting the search value
+    searchInput.dispatchEvent(new Event('input'));
+  }
+
+})();
+
   </script>
 </body>
 </html>
