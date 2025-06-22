@@ -1,207 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Video Archive</title>
-	<style>
-		body {
-			font-family: system-ui, sans-serif;
-			background: #f5f7fa;
-			margin: 0;
-		}
-		h1 {
-			text-align: center;
-			margin: 1rem 0;
-		}
-		#search-container {
-			max-width: 600px;
-			margin: 0 auto 1rem auto;
-			padding: 0 1rem;
-		}
-		#search {
-			width: 100%;
-			padding: 0.5rem 1rem;
-			font-size: 1rem;
-			border: 1px solid #ccc;
-			border-radius: 6px;
-			box-sizing: border-box;
-		}
-		#videos {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-			gap: 1rem;
-			padding: 1rem;
-			max-width: 1200px;
-			margin: 0 auto;
-		}
-		.card {
-			background: #fff;
-			padding: 1rem;
-			border-radius: 8px;
-			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-			display: flex;
-			flex-direction: column;
-		}
-		video {
-			width: 100%;
-			border-radius: 4px;
-			margin-bottom: 0.5rem;
-		}
-		.card h3 {
-			margin: 0 0 0.25rem 0;
-			font-size: 1rem;
-		}
-		.card p {
-			margin: 0 0 0.5rem 0;
-			font-size: 0.875rem;
-			color: #555;
-		}
-		.links a {
-			font-size: 0.875rem;
-			color: #0066cc;
-			margin-right: 1rem;
-			text-decoration: none;
-		}
-		.links a:hover {
-			text-decoration: underline;
-		}
-		.direct-unreachable {
-			color: red !important;
-			pointer-events: none;
-			cursor: default;
-		}
-		#error {
-			text-align: center;
-			color: red;
-			font-weight: bold;
-			margin-top: 1rem;
-		}
-	</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Archive</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      margin: 1rem 0;
+    }
+    #search-container {
+      max-width: 600px;
+      margin: 0 auto 1rem auto;
+      padding: 0 1rem;
+    }
+    #search {
+      width: 100%;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    #videos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+    }
+    video {
+      width: 100%;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+    .card h3 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1rem;
+    }
+    .card p {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      color: #555;
+    }
+    .links a {
+      font-size: 0.875rem;
+      color: #0066cc;
+      margin-right: 1rem;
+      text-decoration: none;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+    .direct-unreachable {
+      color: red !important;
+      pointer-events: none;
+      cursor: default;
+    }
+    #error {
+      text-align: center;
+      color: red;
+      font-weight: bold;
+      margin-top: 1rem;
+    }
+  </style>
 </head>
 <body>
-<h1>Youtube Video Archive</h1>
+  <h1>Youtube Video Archive</h1>
 
-[<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  <a target="_blank" href="list.html" style=color:blue>List</a><br>
-<div id="search-container">
-	<input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
-</div>
-<div id="videos"></div>
-<div id="error"></div>
+  [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  <a target="_blank" href="list.html" style=color:blue>List</a><br>
+  <div id="search-container">
+    <input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
+  </div>
+  <div id="videos"></div>
+  <div id="error"></div>
 
-<script>
-(async () => {
-	const errorEl = document.getElementById('error');
-	const videosEl = document.getElementById('videos');
-	const searchInput = document.getElementById('search');
+  <script>
+    (async () => {
+      const errorEl = document.getElementById('error');
+      const videosEl = document.getElementById('videos');
+      const searchInput = document.getElementById('search');
 
-	// Helper: check if a URL is reachable with HEAD request (timeout 5s)
-	async function isReachable(url) {
-		try {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 5000);
-			const res = await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
-			clearTimeout(timeoutId);
-			if (res.type === 'opaque' || (res.status >= 200 && res.status < 400)) return true;
-			return false;
-		} catch {
-			return false;
-		}
-	}
+      // Helper: check if a URL is reachable with a GET request (timeout 5s)
+      async function isReachable(url) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(url, { 
+            method: 'GET', 
+            signal: controller.signal 
+          });
+          clearTimeout(timeoutId);
 
-	let videos = [];
+          // Only return true if the status is in the successful range
+          return res.ok || (res.status >= 300 && res.status < 400);
+        } catch (error) {
+          return false;
+        }
+      }
 
-	function renderVideos(list) {
-		videosEl.innerHTML = '';
-		for (const v of list) {
-			const directOk = v.directOk;
+      let videos = [];
 
-			const card = document.createElement('div');
-			card.className = 'card';
+      // Render videos
+      function renderVideos(list) {
+        videosEl.innerHTML = '';
+        for (const v of list) {
+          const directOk = v.directOk;
 
-			const videoSrc = directOk ? v.url : v.waybackurl;
+          const card = document.createElement('div');
+          card.className = 'card';
 
-			card.innerHTML = `
-				<video src="${videoSrc}" controls preload="metadata"></video>
-				<h3>${v.title}</h3>
-				<p>Uploader: ${v.uploader}</p>
-				<p>ID: ${v.id ?? 'N/A'}</p>
-				<p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
-				<div class="links">
-					<a href="${v.url}" target="_blank" class="${directOk ? '' : 'direct-unreachable'}">Direct</a>
-					<a href="${v.waybackurl}" target="_blank">Wayback</a>
-				</div>`;
-			videosEl.appendChild(card);
-		}
-	}
+          const videoSrc = directOk ? v.url : v.waybackurl; // Use Wayback URL if direct URL is not available
 
-	try {
-		// Try loading the original videos.json first
-		const url = new URL('videos.json', location.href);
-		url.searchParams.set('_', Date.now()); // prevent cache
-		const res = await fetch(url.toString(), { cache: 'no-store' });
+          // HTML for rendering video card
+          card.innerHTML = `
+            <video src="${videoSrc}" controls preload="metadata"></video>
+            <h3>${v.title}</h3>
+            <p>Uploader: ${v.uploader}</p>
+            <p>ID: ${v.id ?? 'N/A'}</p>
+            <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+            <div class="links">
+              <a href="${v.url}" target="_blank" class="${directOk ? '' : 'direct-unreachable'}">Direct</a>
+              <a href="${v.waybackurl}" target="_blank">Wayback</a>
+            </div>
+          `;
 
-		if (!res.ok) {
-			throw new Error(`HTTP ${res.status} ${res.statusText}`);
-		}
+          videosEl.appendChild(card);
+        }
+      }
 
-		videos = await res.json();
-	} catch (e) {
-		// If the original fails, load the external URL
-		const externalUrl = 'https://ry3yr.github.io/videos.json';
-		const res = await fetch(externalUrl, { cache: 'no-store' });
+      try {
+        // Try loading the original videos.json first
+        const url = new URL('videos.json', location.href);
+        url.searchParams.set('_', Date.now()); // prevent cache
+        const res = await fetch(url.toString(), { cache: 'no-store' });
 
-		if (!res.ok) {
-			errorEl.textContent = 'Failed to load videos from both sources.';
-			return;
-		}
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
 
-		videos = await res.json();
-	}
+        videos = await res.json();
+      } catch (e) {
+        // If the original fails, load the external URL
+        const externalUrl = 'https://ry3yr.github.io/videos.json';
+        const res = await fetch(externalUrl, { cache: 'no-store' });
 
-	// Parse limit query parameter
-	const params = new URLSearchParams(window.location.search);
-	const limit = parseInt(params.get('limit'));
-	const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
+        if (!res.ok) {
+          errorEl.textContent = 'Failed to load videos from both sources.';
+          return;
+        }
 
-	// Check reachability for each video and store directOk flag
-	for (const v of videos) {
-		v.directOk = await isReachable(v.url);
-	}
+        videos = await res.json();
+      }
 
-	// Render the video list initially (limit applied only here)
-	renderVideos(limitedVideos);
+      // Parse limit query parameter
+      const params = new URLSearchParams(window.location.search);
+      const limit = parseInt(params.get('limit'));
+      const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
 
-	// Handle search input filtering
-	searchInput.addEventListener('input', () => {
-		const query = searchInput.value.trim().toLowerCase();
-		let filtered = videos;  // Search through all videos
+      // Check reachability for each video and store directOk flag
+      for (const v of videos) {
+        v.directOk = await isReachable(v.url); // Check reachability before rendering
+      }
 
-		if (query) {
-			filtered = videos.filter(v =>
-				(v.title && v.title.toLowerCase().includes(query)) ||
-				(v.uploader && v.uploader.toLowerCase().includes(query)) ||
-				(v.id && v.id.toString().toLowerCase().includes(query))
-			);
-		}
+      // Render the video list initially (limit applied only here)
+      renderVideos(limitedVideos);
 
-		// Apply the limit again after filtering
-		if (limit > 0) {
-			filtered = filtered.slice(0, limit);
-		}
+      // Handle search input filtering
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let filtered = videos;  // Search through all videos
 
-		renderVideos(filtered);
-	});
+        if (query) {
+          filtered = videos.filter(v =>
+            (v.title && v.title.toLowerCase().includes(query)) ||
+            (v.uploader && v.uploader.toLowerCase().includes(query)) ||
+            (v.id && v.id.toString().toLowerCase().includes(query))
+          );
+        }
 
-	// Check if there is a 'videoid' query string and trigger the filter
-	const videoId = params.get('videoid');
-	if (videoId) {
-		searchInput.value = videoId; // Set input value to the 'videoid' query
-		// Manually trigger the input event after setting the search value
-		searchInput.dispatchEvent(new Event('input'));
-	}
+        // Apply the limit again after filtering
+        if (limit > 0) {
+          filtered = filtered.slice(0, limit);
+        }
 
-})();
-</script>
+        renderVideos(filtered);
+      });
+
+      // Check if there is a 'videoid' query string and trigger the filter
+      const videoId = params.get('videoid');
+      if (videoId) {
+        searchInput.value = videoId; // Set input value to the 'videoid' query
+        // Manually trigger the input event after setting the search value
+        searchInput.dispatchEvent(new Event('input'));
+      }
+
+    })();
+  </script>
 </body>
 </html>
