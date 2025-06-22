@@ -20,7 +20,7 @@ $updates = [];
 foreach ($list as $index => $entry) {
     if (!isset($entry['url'], $entry['waybackurl'])) continue;
 
-    // SIMPLIFIED: Check if waybackurl contains a '*'
+    // Check if '*' exists in the waybackurl
     if (strpos($entry['waybackurl'], '*') !== false) {
         $timestamped = get_wayback_timestamped_url($entry['url']);
         if ($timestamped && $timestamped !== $entry['waybackurl']) {
@@ -33,6 +33,7 @@ foreach ($list as $index => $entry) {
         }
     }
 }
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirmed = $_POST['confirm'] ?? [];
