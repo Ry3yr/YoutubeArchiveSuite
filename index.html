@@ -77,196 +77,216 @@
       font-weight: bold;
       margin-top: 1rem;
     }
+    .toggle-src {
+      margin-top: 0.5rem;
+      padding: 0.4rem;
+      font-size: 0.85rem;
+      background: #eef;
+      border: 1px solid #aac;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .toggle-src:hover {
+      background: #dde;
+    }
   </style>
 </head>
 <body>
   <h1>Youtube Video Archive</h1>
 
-  [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  <a target="_blank" href="list.html" style=color:blue>List</a> 
-[<a href="javascript:if(!window.location.href.includes('extendedsearch=true')){window.history.pushState({}, '', window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'extendedsearch=true');}">Enable RealtimeSearch</a>]<br>
+  [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  
+  <a target="_blank" href="list.html" style=color:blue>List</a> 
+  [<a href="javascript:if(!window.location.href.includes('extendedsearch=true')){window.history.pushState({}, '', window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'extendedsearch=true');}">Enable RealtimeSearch</a>]
+
   <div id="search-container">
     <input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
   </div>
+
+  <div style="text-align:center; margin: 1rem;">
+    <button id="check-links">🔍 Check Direct Links</button>
+  </div>
+
   <div id="videos"></div>
   <div id="error"></div>
 
   <script>
-  (async () => {
-  const errorEl = document.getElementById('error');
-  const videosEl = document.getElementById('videos');
-  const searchInput = document.getElementById('search');
+    (async () => {
+      const errorEl = document.getElementById('error');
+      const videosEl = document.getElementById('videos');
+      const searchInput = document.getElementById('search');
+      const checkLinksButton = document.getElementById('check-links');
 
-  // Helper: check if a URL is reachable with a GET request (timeout 5s)
-  async function isReachable(url) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { 
-        method: 'GET', 
-        signal: controller.signal 
-      });
-      clearTimeout(timeoutId);
-
-      // Only return true if the status is in the successful range
-      return res.ok || (res.status >= 300 && res.status < 400);
-    } catch (error) {
-      return false;
-    }
-  }
-
-  let videos = [];
-
-  // Render videos
-  function renderVideos(list) {
-    videosEl.innerHTML = '';
-    for (const v of list) {
-      const directOk = v.directOk;
-
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const videoSrc = directOk ? v.url : v.waybackurl; // Use Wayback URL if direct URL is not available
-
-      // HTML for rendering video card
-      card.innerHTML = `
-        <video src="${videoSrc}" controls preload="metadata"></video>
-        <h3>${v.title}</h3>
-        <p>Uploader: ${v.uploader}</p>
-        <p>ID: ${v.id ?? 'N/A'}</p>
-        <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
-        <div class="links">
-          <a href="${v.url}" target="_blank" class="${directOk ? '' : 'direct-unreachable'}">Direct</a>
-          <a href="${v.waybackurl}" target="_blank">Wayback</a>
-        </div>
-      `;
-
-      videosEl.appendChild(card);
-    }
-  }
-
-  try {
-    // Try loading the original videos.json first
-    const url = new URL('videos.json', location.href);
-    url.searchParams.set('_', Date.now()); // prevent cache
-    const res = await fetch(url.toString(), { cache: 'no-store' });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    }
-
-    videos = await res.json();
-  } catch (e) {
-    // If the original fails, load the external URL
-    const externalUrl = 'https://ry3yr.github.io/videos.json';
-    const res = await fetch(externalUrl, { cache: 'no-store' });
-
-    if (!res.ok) {
-      errorEl.textContent = 'Failed to load videos from both sources.';
-      return;
-    }
-
-    videos = await res.json();
-  }
-
-  // Parse limit query parameter
-  const params = new URLSearchParams(window.location.search);
-  const limit = parseInt(params.get('limit'));
-  const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
-  searchInput.placeholder = `Search ${videos.length} videos...`;
-  
-  // Check reachability for each video and store directOk flag
-  for (const v of videos) {
-    v.directOk = await isReachable(v.url); // Check reachability before rendering
-  }
-
-  // Render the video list initially (limit applied only here)
-  renderVideos(limitedVideos);
-
-  // Determine if extended search should be active
-  const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
-
-  // If extended search is active, set localStorage flag and enable it
-  if (isExtendedSearchActive) {
-    if (!localStorage.getItem('extendedsearch')) {
-      localStorage.setItem('extendedsearch', 'true'); // Store in localStorage for future use
-    }
-
-    // Extended Search Functionality
-    const suggestionList = document.createElement('ul');
-    suggestionList.style.position = 'absolute';
-    suggestionList.style.maxHeight = '300px';
-    suggestionList.style.overflowY = 'auto';
-    suggestionList.style.width = '100%';
-    suggestionList.style.backgroundColor = '#fff';
-    suggestionList.style.border = '1px solid #ccc';
-    suggestionList.style.borderRadius = '6px';
-    suggestionList.style.zIndex = '10';
-    suggestionList.style.listStyle = 'none';
-    suggestionList.style.padding = '0';
-    suggestionList.style.margin = '0';
-    searchInput.parentElement.appendChild(suggestionList);
-
-    // Filter videos as you type
-    searchInput.addEventListener('input', () => {
-      const query = searchInput.value.trim().toLowerCase();
-      suggestionList.innerHTML = ''; // Clear previous suggestions
-
-      if (query) {
-        const filteredVideos = videos.filter(v => v.title.toLowerCase().includes(query));
-        filteredVideos.forEach(v => {
-          const suggestionItem = document.createElement('li');
-          suggestionItem.style.padding = '0.5rem';
-          suggestionItem.style.cursor = 'pointer';
-          suggestionItem.textContent = v.title;
-          suggestionItem.addEventListener('click', () => {
-            searchInput.value = v.title; // Prefill the search input with selected video title
-            suggestionList.innerHTML = ''; // Clear suggestions after selection
-            searchInput.dispatchEvent(new Event('input')); // Trigger filtering again
+      // Helper: check if a URL is reachable
+      async function isReachable(url) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(url, {
+            method: 'GET',
+            signal: controller.signal
           });
-          suggestionList.appendChild(suggestionItem);
+          clearTimeout(timeoutId);
+          return res.ok || (res.status >= 300 && res.status < 400);
+        } catch {
+          return false;
+        }
+      }
+
+      let videos = [];
+
+      function renderVideos(list) {
+        videosEl.innerHTML = '';
+        for (const v of list) {
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          const videoId = `video-${v.id}`;
+
+          const unreachableClass = v.directOk === false ? 'direct-unreachable' : '';
+          const directAvailable = v.directOk === true;
+
+          card.innerHTML = `
+            <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
+            <h3>${v.title}</h3>
+            <p>Uploader: ${v.uploader}</p>
+            <p>ID: ${v.id ?? 'N/A'}</p>
+            <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+            <div class="links">
+              <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
+              <a href="${v.waybackurl}" target="_blank">Wayback</a>
+            </div>
+            <button class="toggle-src" data-id="${v.id}">🔁 Switch to Direct</button>
+          `;
+
+          videosEl.appendChild(card);
+
+          const toggleBtn = card.querySelector('.toggle-src');
+          const videoEl = card.querySelector('video');
+
+          toggleBtn.addEventListener('click', () => {
+            const currentSrc = videoEl.src;
+            const usingWayback = currentSrc.includes(v.waybackurl);
+            if (usingWayback) {
+              if (v.directOk === false) {
+                alert("Direct link not available or not yet checked.");
+              } else {
+                videoEl.src = v.url;
+                toggleBtn.textContent = '🔁 Switch to Wayback';
+              }
+            } else {
+              videoEl.src = v.waybackurl;
+              toggleBtn.textContent = '🔁 Switch to Direct';
+            }
+          });
+        }
+      }
+
+      // Load video data
+      try {
+        const localUrl = new URL('videos.json', location.href);
+        localUrl.searchParams.set('_', Date.now());
+        const res = await fetch(localUrl.toString(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('Local load failed');
+        videos = await res.json();
+      } catch {
+        const res = await fetch('https://ry3yr.github.io/videos.json', { cache: 'no-store' });
+        if (!res.ok) {
+          errorEl.textContent = 'Failed to load videos from both sources.';
+          return;
+        }
+        videos = await res.json();
+      }
+
+      // Apply query limit
+      const params = new URLSearchParams(window.location.search);
+      const limit = parseInt(params.get('limit'));
+      const videoId = params.get('videoid');
+      const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
+      searchInput.placeholder = `Search ${videos.length} videos...`;
+
+      // Initial render (wayback only)
+      renderVideos(limitedVideos);
+
+      // Search filtering
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let filtered = videos;
+        if (query) {
+          filtered = videos.filter(v =>
+            (v.title?.toLowerCase().includes(query)) ||
+            (v.uploader?.toLowerCase().includes(query)) ||
+            (v.id?.toString().toLowerCase().includes(query))
+          );
+        }
+        if (limit > 0) {
+          filtered = filtered.slice(0, limit);
+        }
+        renderVideos(filtered);
+      });
+
+      // Pre-fill search if videoid provided
+      if (videoId) {
+        searchInput.value = videoId;
+        searchInput.dispatchEvent(new Event('input'));
+      }
+
+      // Check links button
+      checkLinksButton.addEventListener('click', async () => {
+        checkLinksButton.disabled = true;
+        checkLinksButton.textContent = '⏳ Checking...';
+        for (const v of videos) {
+          v.directOk = await isReachable(v.url);
+        }
+        checkLinksButton.disabled = false;
+        checkLinksButton.textContent = '🔍 Check Direct Links';
+        renderVideos(videos);
+      });
+
+      // Extended search suggestions
+      const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
+      if (isExtendedSearchActive) {
+        localStorage.setItem('extendedsearch', 'true');
+        const suggestionList = document.createElement('ul');
+        Object.assign(suggestionList.style, {
+          position: 'absolute',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          width: '100%',
+          backgroundColor: '#fff',
+          border: '1px solid #ccc',
+          borderRadius: '6px',
+          zIndex: '10',
+          listStyle: 'none',
+          padding: '0',
+          margin: '0'
+        });
+        searchInput.parentElement.appendChild(suggestionList);
+
+        searchInput.addEventListener('input', () => {
+          const query = searchInput.value.trim().toLowerCase();
+          suggestionList.innerHTML = '';
+          if (query) {
+            const filtered = videos.filter(v => v.title?.toLowerCase().includes(query));
+            filtered.forEach(v => {
+              const item = document.createElement('li');
+              item.style.padding = '0.5rem';
+              item.style.cursor = 'pointer';
+              item.textContent = v.title;
+              item.addEventListener('click', () => {
+                searchInput.value = v.title;
+                suggestionList.innerHTML = '';
+                searchInput.dispatchEvent(new Event('input'));
+              });
+              suggestionList.appendChild(item);
+            });
+          }
+        });
+
+        searchInput.addEventListener('blur', () => {
+          setTimeout(() => suggestionList.innerHTML = '', 200);
         });
       }
-    });
-
-    // Close suggestions if input is focused elsewhere
-    searchInput.addEventListener('blur', () => {
-      setTimeout(() => {
-        suggestionList.innerHTML = ''; // Clear suggestions after losing focus
-      }, 200);
-    });
-  }
-
-  // Handle search input filtering
-  searchInput.addEventListener('input', () => {
-    const query = searchInput.value.trim().toLowerCase();
-    let filtered = videos;  // Search through all videos
-
-    if (query) {
-      filtered = videos.filter(v =>
-        (v.title && v.title.toLowerCase().includes(query)) ||
-        (v.uploader && v.uploader.toLowerCase().includes(query)) ||
-        (v.id && v.id.toString().toLowerCase().includes(query))
-      );
-    }
-
-    // Apply the limit again after filtering
-    if (limit > 0) {
-      filtered = filtered.slice(0, limit);
-    }
-
-    renderVideos(filtered);
-  });
-
-  // Check if there is a 'videoid' query string and trigger the filter
-  const videoId = params.get('videoid');
-  if (videoId) {
-    searchInput.value = videoId; // Set input value to the 'videoid' query
-    // Manually trigger the input event after setting the search value
-    searchInput.dispatchEvent(new Event('input'));
-  }
-
-})();
-
+    })();
   </script>
 </body>
 </html>
