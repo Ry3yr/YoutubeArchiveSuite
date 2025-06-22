@@ -63,43 +63,32 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
-
 <?php
 define('JSON_FILE', 'videos.json');
 define('MAX_SIZE',  500 * 1024 * 1024); // 500MB
 define('MIN_SIZE',  100 * 1024); // 100KB
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_GET['apikey'])) exit('Missing API key.');
     $apiKey = $_GET['apikey'];
-
-    // Handle file upload or URL download
     if (!empty($_FILES['video']['tmp_name']) && $_FILES['video']['error'] === UPLOAD_ERR_OK) {
         // Skip if uploaded file less than 100KB
         if ($_FILES['video']['size'] < MIN_SIZE) exit('File too small, skipping.');
-
-        // Handle file upload
         $filePath = handleFileUpload($_FILES['video']);
         $fileName = $_FILES['video']['name'];
     } elseif (!empty($_POST['video_url'])) {
         $url = $_POST['video_url'];
         $fileName = !empty($_POST['filename']) ? $_POST['filename'] : basename(parse_url($url, PHP_URL_PATH));
-
-        // Download file content and check size before saving
         $content = file_get_contents($url);
         if ($content === false) exit('Failed to download the file from URL.');
         if (strlen($content) < MIN_SIZE) exit('Downloaded file too small, skipping.');
-
         $filePath = handleUrlDownloadContent($content, $fileName);
     } else {
         exit('No video provided.');
     }
-
     $base = pathinfo($filePath, PATHINFO_FILENAME);
     $id = null;
     $title = null;
     $uploader = null;
-
     if (preg_match('/^[A-Za-z0-9_-]{11}$/', $base)) {
         $id = $base;
         $resp = yt_api("https://youtube.googleapis.com/youtube/v3/videos?part=snippet&id={$id}&key={$apiKey}");
@@ -114,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $uploader = $resp['items'][0]['snippet']['channelTitle'] ?? null;
         if (!$id || !$title) exit('YouTube search failed.');
     }
-
     $newName = $id . '.mp4';
     $newPath = __DIR__ . DIRECTORY_SEPARATOR . $newName;
     if ($filePath !== $newPath) {
@@ -122,19 +110,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!rename($filePath, $newPath)) exit('Rename failed.');
         $filePath = $newPath;
     }
-
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
     $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
     $fileUrl = $scheme . '://' . $host . $scriptDir . '/' . rawurlencode($newName);
-
     /* Trigger Wayback save */
     $waybackSaveUrl = 'https://web.archive.org/save/' . rawurlencode($fileUrl);
     $archiveSuccess = try_wayback_save($waybackSaveUrl);
-
     /* Get timestamped archived URL if saved */
     $waybackUrl = get_wayback_timestamped_url($fileUrl);
-
     $entry = [
         'id'        => $id,
         'title'     => $title,
@@ -144,15 +128,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'url'       => $fileUrl,
         'waybackurl'=> $waybackUrl ?: "https://web.archive.org/web/*/$fileUrl",
     ];
-
     $list = file_exists(JSON_FILE) ? json_decode(file_get_contents(JSON_FILE), true) : [];
     if (!is_array($list)) $list = [];
     $list[] = $entry;
     file_put_contents(JSON_FILE, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-
     echo "OK<br>Saved as: {$newName}<br>YouTube ID: {$id}<br>Title: {$title}<br>Uploader: {$uploader}<br>";
     echo "URL: <a href='{$fileUrl}' target='_blank'>{$fileUrl}</a><br>";
-
     if ($archiveSuccess) {
         echo "Wayback Machine archive triggered successfully.<br>";
         if ($waybackUrl) {
@@ -164,26 +145,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "Could not trigger automatic archiving. <a target=_blank href=waybackupdater.php style=color:blue>FixLink</a><br>";
         echo "You can archive manually: <a href='{$waybackSaveUrl}' target='_blank'>Save on Wayback Machine</a><br>";
     }
-
     exit;
 }
-
 function handleFileUpload($file): string {
     if ($file['size'] > MAX_SIZE) exit('File too large.');
     if (mime_content_type($file['tmp_name']) !== 'video/mp4') exit('Not an MP4.');
-
     $safeName = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $file['name']);
     $dst = __DIR__ . DIRECTORY_SEPARATOR . $safeName;
     if (!move_uploaded_file($file['tmp_name'], $dst)) exit('Move failed.');
     return $dst;
 }
-
 function handleUrlDownloadContent(string $content, string $filename): string {
     $dst = __DIR__ . DIRECTORY_SEPARATOR . $filename;
     if (file_put_contents($dst, $content) === false) exit('Failed to save the downloaded file.');
     return $dst;
 }
-
 function yt_api(string $url): array {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -230,19 +206,31 @@ function get_wayback_timestamped_url(string $url): ?string {
     <label>Choose MP4:
         <input type="file" name="video" accept=".mp4">
     </label><br><br><hr>
-    
     <label>Or provide URL for video:
         <input type="url" name="video_url" placeholder="Enter video URL" id="video_url" onchange="checkUrl()">
     </label><br>
-
     <label>Filename (only if URL is provided):
         <input type="text" name="filename" id="filename">
-    </label><br><hr>
+    </label>
+
+<button type="button" onclick="extractYouTubeId()">Extract Video ID</button><br><br>
+<script>
+        function extractYouTubeId() {
+            const url = document.getElementById('filename').value;
+            const regex = /[?&]v=([a-zA-Z0-9_-]{11})/;
+            const match = url.match(regex);
+            if (match && match[1]) {
+                const videoId = match[1];
+                document.getElementById('filename').value = videoId + '.mp4';
+            } else {
+                document.getElementById('filename').value = 'Invalid URL';
+            }
+        }
+    </script><hr>
 
     <p>Usage: <code>?apikey=YOUR_YOUTUBE_API_KEY</code> in URL</p>
     <button type="submit">Upload</button>
 </form>
-
 <script>
 function checkUrl() {
     const urlField = document.getElementById('video_url');
@@ -262,6 +250,7 @@ function checkUrl() {
 </script>
 </body>
 </html>
+
 
 
 
