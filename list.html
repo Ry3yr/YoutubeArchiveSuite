@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Video Archive</title>
+	<style>
+		body {
+			font-family: system-ui, sans-serif;
+			background: #f5f7fa;
+			margin: 0;
+		}
+		h1 {
+			text-align: center;
+			margin: 1rem 0;
+		}
+		#videos-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1rem auto;
+			max-width: 1200px;
+		}
+		#videos-table th, #videos-table td {
+			border: 1px solid #ddd;
+			padding: 8px;
+			text-align: left;
+		}
+		#videos-table th {
+			background-color: #f0f0f0;
+		}
+		.links a {
+			font-size: 0.875rem;
+			color: #0066cc;
+			text-decoration: none;
+		}
+		.links a:hover {
+			text-decoration: underline;
+		}
+	</style>
+</head>
+<body>
+<h1>Video Archive</h1>
+<table id="videos-table">
+	<thead>
+		<tr>
+			<th>Title</th>
+			<th>Uploader</th>
+			<th>ID</th>
+			<th>Uploaded</th>
+			<th>Direct Link</th>
+			<th>Wayback Link</th>
+		</tr>
+	</thead>
+	<tbody id="videos"></tbody>
+</table>
+
+<script>
+(async () => {
+	const videosEl = document.getElementById('videos');
+
+	// Fetch the videos.json
+	try {
+		const res = await fetch('videos.json');
+		if (!res.ok) {
+			throw new Error(`HTTP ${res.status} ${res.statusText}`);
+		}
+
+		const videos = await res.json();
+
+		// Render videos in the table
+		videos.forEach(v => {
+			const row = document.createElement('tr');
+
+			// Create a clickable link for the video title
+			const videoLink = `<a href="https://m.youtube.com/watch?v=${v.id}" target="_blank">${v.title}</a>`;
+
+			// Add the video details in table cells
+			row.innerHTML = `
+				<td>${videoLink}</td>
+				<td>${v.uploader}</td>
+				<td>${v.id ?? 'N/A'}</td>
+				<td>${new Date(v.uploaded).toLocaleString()}</td>
+				<td><a href="${v.url}">Direct</a></td>
+				<td><a href="${v.waybackurl}">Wayback</a></td>
+			`;
+
+			// Append the row to the table body
+			videosEl.appendChild(row);
+		});
+	} catch (e) {
+		console.error('Failed to load videos:', e);
+	}
+})();
+</script>
+</body>
+</html>
