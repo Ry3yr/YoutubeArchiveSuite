@@ -135,51 +135,55 @@
       let videos = [];
 
       function renderVideos(list) {
-        videosEl.innerHTML = '';
-        for (const v of list) {
-          const card = document.createElement('div');
-          card.className = 'card';
+  videosEl.innerHTML = '';
+  for (const v of list) {
+    const card = document.createElement('div');
+    card.className = 'card';
 
-          const videoId = `video-${v.id}`;
+    const videoId = `video-${v.id}`;
 
-          const unreachableClass = v.directOk === false ? 'direct-unreachable' : '';
-          const directAvailable = v.directOk === true;
+    const unreachableClass = v.directOk === false ? 'direct-unreachable' : '';
+    const directAvailable = v.directOk === true;
 
-          card.innerHTML = `
-            <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
-            <h3>${v.title}</h3>
-            <p>Uploader: ${v.uploader}</p>
-            <p>ID: ${v.id ?? 'N/A'}</p>
-            <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
-            <div class="links">
-              <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
-              <a href="${v.waybackurl}" target="_blank">Wayback</a>
-            </div>
-            <button class="toggle-src" data-id="${v.id}">🔁 Switch to Direct</button>
-          `;
+    card.innerHTML = `
+      <div class="video-container">
+        <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
+      </div>
+      <h3>${v.title}</h3>
+      <p>Uploader: ${v.uploader}</p>
+      <p>ID: ${v.id ?? 'N/A'}</p>
+      <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+      <div class="links">
+        <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
+        <a href="${v.waybackurl}" target="_blank">Wayback</a>
+        <a href="javascript:void(0);" class="youtube-link" data-id="${v.id}">YouTube</a>
+      </div>
+      <button class="toggle-src" data-id="${v.id}">🔁 Switch to Direct</button>
+    `;
 
-          videosEl.appendChild(card);
+    videosEl.appendChild(card);
 
-          const toggleBtn = card.querySelector('.toggle-src');
-          const videoEl = card.querySelector('video');
+    const toggleBtn = card.querySelector('.toggle-src');
+    const videoEl = card.querySelector('video');
 
-          toggleBtn.addEventListener('click', () => {
-            const currentSrc = videoEl.src;
-            const usingWayback = currentSrc.includes(v.waybackurl);
-            if (usingWayback) {
-              if (v.directOk === false) {
-                alert("Direct link not available or not yet checked.");
-              } else {
-                videoEl.src = v.url;
-                toggleBtn.textContent = '🔁 Switch to Wayback';
-              }
-            } else {
-              videoEl.src = v.waybackurl;
-              toggleBtn.textContent = '🔁 Switch to Direct';
-            }
-          });
+    toggleBtn.addEventListener('click', () => {
+      const currentSrc = videoEl.src;
+      const usingWayback = currentSrc.includes(v.waybackurl);
+      if (usingWayback) {
+        if (v.directOk === false) {
+          alert("Direct link not available or not yet checked.");
+        } else {
+          videoEl.src = v.url;
+          toggleBtn.textContent = '🔁 Switch to Wayback';
         }
+      } else {
+        videoEl.src = v.waybackurl;
+        toggleBtn.textContent = '🔁 Switch to Direct';
       }
+    });
+  }
+}
+
 
       // Load video data
       try {
@@ -287,6 +291,30 @@
         });
       }
     })();
+
+document.addEventListener('click', function(event) {
+    if (event.target && event.target.classList.contains('youtube-link')) {
+      const videoId = event.target.getAttribute('data-id');
+      const videoContainer = event.target.closest('.card').querySelector('.video-container');
+      
+      // Create the YouTube embed iframe
+      const iframe = document.createElement('iframe');
+      iframe.width = '100%';
+      iframe.height = '315';
+      iframe.src = `https://www.youtube.com/embed/${videoId}`;
+      iframe.frameBorder = '0';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      
+      // Replace the existing video element with the iframe
+      videoContainer.innerHTML = '';  // Clear existing video
+      videoContainer.appendChild(iframe);
+      
+      // Optionally, change the "YouTube" link text to something else
+      event.target.textContent = 'YouTube (Playing)';
+      event.target.classList.add('playing');
+    }
+  });
   </script>
 </body>
 </html>
