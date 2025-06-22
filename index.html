@@ -171,7 +171,7 @@
       const params = new URLSearchParams(window.location.search);
       const limit = parseInt(params.get('limit'));
       const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
-
+      searchInput.placeholder = `Search ${videos.length} videos...`;
       // Check reachability for each video and store directOk flag
       for (const v of videos) {
         v.directOk = await isReachable(v.url); // Check reachability before rendering
