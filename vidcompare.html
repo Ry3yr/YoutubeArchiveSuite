@@ -1,0 +1,135 @@
+<meta charset="UTF-8" />
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #eee; }
+  td.folder-missing { color: red; }
+  td.json-missing { color: orange; }
+  a { text-decoration: none; color: blue; }
+  label { margin-right: 10px; font-weight: bold; }
+  input[type=text] { width: 300px; margin-right: 20px; padding: 5px; }
+  #controls { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<h2>Folder vs 📜 JSON MP4 Comparison</h2>
+
+<div id="controls">
+  <label for="folder-url">Folder URL:</label>
+  <input type="text" id="folder-url" value="fin/" />
+  
+  <label for="json-url">JSON URL:</label>
+  <input type="text" id="json-url" value="videos.json" />
+  
+  <button onclick="loadAndCompare()">Load & Compare</button>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>📁 Folder (.mp4 files)</th>
+      <th>📜 JSON (.mp4 entries)</th>
+    </tr>
+  </thead>
+  <tbody id="compare-body">
+    <!-- Rows will be inserted here -->
+  </tbody>
+</table>
+
+<script>
+  async function loadAndCompare() {
+    let folderURLInput = document.getElementById("folder-url").value.trim();
+
+    if (folderURLInput === "" || folderURLInput === "/") {
+      folderURLInput = "./";
+    }
+    if (!folderURLInput.endsWith('/')) {
+      folderURLInput += '/';
+    }
+
+    // Resolve relative to current page URL (vidcompare.html)
+    const folderURL = new URL(folderURLInput, window.location.href).href;
+
+    let jsonURL = document.getElementById("json-url").value.trim();
+
+    const tbody = document.getElementById("compare-body");
+    const ths = document.querySelectorAll("thead th");
+    tbody.innerHTML = "Loading...";
+
+    try {
+      const folderRes = await fetch(folderURL);
+      const folderHtml = await folderRes.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(folderHtml, "text/html");
+      const folderAnchors = Array.from(doc.querySelectorAll("a[href$='.mp4']"));
+      const folderFilesOriginal = folderAnchors.map(a => a.getAttribute("href").split("/").pop());
+      const folderFilesMap = new Map();
+      folderFilesOriginal.forEach(name => {
+        const lower = name.toLowerCase();
+        if (!folderFilesMap.has(lower)) {
+          folderFilesMap.set(lower, name);
+        }
+      });
+      const folderSet = new Set(folderFilesMap.keys());
+
+      const jsonRes = await fetch(jsonURL);
+      const jsonData = await jsonRes.json();
+      tbody.innerHTML = "";
+
+      let folderCount = 0;
+
+      for (const entry of jsonData) {
+        const fileLower = entry.file.toLowerCase();
+        const existsInFolder = folderSet.has(fileLower);
+        if (existsInFolder) folderCount++;
+
+        const tr = document.createElement("tr");
+
+        const tdFolder = document.createElement("td");
+        if (existsInFolder) {
+          const originalName = folderFilesMap.get(fileLower);
+          tdFolder.innerHTML = `<a href="${folderURL}${originalName}" target="_blank">${originalName}</a>`;
+        } else {
+          tdFolder.textContent = `(missing) ${entry.file}`;
+          tdFolder.classList.add("folder-missing");
+        }
+        tr.appendChild(tdFolder);
+
+        const tdJSON = document.createElement("td");
+        tdJSON.innerHTML = `<strong>${entry.file}</strong><br>${entry.title}`;
+        tr.appendChild(tdJSON);
+
+        tbody.appendChild(tr);
+      }
+
+      const jsonFilesSet = new Set(jsonData.map(e => e.file.toLowerCase()));
+      for (const [lowerName, originalName] of folderFilesMap.entries()) {
+        if (!jsonFilesSet.has(lowerName)) {
+          folderCount++;
+          const tr = document.createElement("tr");
+
+          const tdFolder = document.createElement("td");
+          tdFolder.innerHTML = `<a href="${folderURL}${originalName}" target="_blank">${originalName}</a>`;
+          tr.appendChild(tdFolder);
+
+          const tdJSON = document.createElement("td");
+          tdJSON.textContent = "(missing in JSON)";
+          tdJSON.classList.add("json-missing");
+          tr.appendChild(tdJSON);
+
+          tbody.appendChild(tr);
+        }
+      }
+
+      ths[0].textContent = `📁 Folder (.mp4 files) [${folderCount}]`;
+      ths[1].textContent = `📜 JSON (.mp4 entries) [${jsonData.length}]`;
+
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="2" style="color:red;">Error loading data: ${e.message}</td></tr>`;
+      console.error(e);
+    }
+  }
+</script>
+</body>
+</html>
