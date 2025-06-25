@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Snapshot Info</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .loading-cell {
+            text-align: center;
+        }
+
+        .now-link {
+            color: blue;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #active-check {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        iframe {
+            width: 100%;
+            height: 200px;
+            border: none;
+            margin-top: 10px;
+            pointer-events: none; /* Make iframe non-interactive (thumbnail-like) */
+        }
+
+        .iframe-cell {
+            vertical-align: top;  /* Ensure it aligns with timeCell */
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Snapshot Info</h1>
+    
+    <!-- Active check reporting -->
+    <div id="active-check">
+        Currently Active Check: <span id="active-video">None</span>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Video URL</th>
+                <th>Is Playable</th>
+                <th>Request Time (ms)</th>
+                <th>Iframe</th> <!-- New column for iframe -->
+            </tr>
+        </thead>
+        <tbody id="videos"></tbody>
+    </table>
+
+    <script>
+        // Function to get the query parameter value from the URL
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Concurrency limit
+        const concurrencyLimit = 4;
+        let activeChecks = 0;
+        const videoQueue = [];
+        let isQueuePaused = false;  // To keep track of whether the queue is paused
+
+        // Function to start checking playability with concurrency limit
+        function processQueue() {
+            if (isQueuePaused) return;  // Stop processing if the queue is paused
+
+            // If there are less than 4 active checks and there are videos to process
+            if (activeChecks < concurrencyLimit && videoQueue.length > 0) {
+                const nextVideo = videoQueue.shift();  // Get the next video from the queue
+                activeChecks++;
+
+                // Set "Loading..." for the video that's currently being checked
+                nextVideo.playabilityCell.textContent = 'Loading...';
+
+                // Report the current active video
+                updateActiveVideoReport(nextVideo.videoUrl);
+
+                // Check playability for the video
+                checkVideoStatus(nextVideo.videoUrl, nextVideo.playabilityCell, nextVideo.timeCell, nextVideo.iframeCell)
+                    .then((status) => {
+                        nextVideo.playabilityCell.textContent = status;  // Update with the result ("Yes", "No", or "timeout")
+                        activeChecks--;
+                        processQueue();  // Process the next video in the queue
+                    });
+            }
+        }
+
+        // Fast method to check if video URL is accessible and can be played
+        function checkVideoStatus(videoUrl, playabilityCell, timeCell, iframeCell) {
+            const startTime = performance.now();  // Start time for the request
+
+            return new Promise((resolve) => {
+                const videoElement = document.createElement('video');
+                videoElement.preload = 'metadata';  // Only load metadata
+
+                const sourceElement = document.createElement('source');
+                sourceElement.src = videoUrl;
+                sourceElement.type = 'video/mp4';  // Assuming mp4 for simplicity
+                videoElement.appendChild(sourceElement);
+
+                // Timeout for metadata loading to simulate quick checks
+                const timeout = setTimeout(() => {
+                    const endTime = performance.now();  // End time for the request
+                    const requestTime = (endTime - startTime).toFixed(2); // Duration in ms
+                    timeCell.textContent = `${requestTime} ms`;  // Display time it took for the check
+
+                    // Append iframe to the iframeCell if timeout occurs
+                    const iframe = document.createElement('iframe');
+                    iframe.src = videoUrl;
+                    iframe.width = '100%';  // Ensure iframe takes up full width
+                    iframe.height = '200px';  // You can adjust height as needed
+                    iframeCell.appendChild(iframe);  // Append iframe directly to iframeCell
+
+                    resolve('(timeout)');  // Timeout means the video could not be loaded
+                }, 20000);  // 20-second timeout
+
+                // Add error event listener to detect broken files
+                videoElement.addEventListener('error', () => {
+                    const endTime = performance.now();  // End time for the request
+                    const requestTime = (endTime - startTime).toFixed(2); // Duration in ms
+                    timeCell.textContent = `${requestTime} ms`;  // Display time it took for the check
+                    clearTimeout(timeout);  // Clear the timeout if error is detected
+
+                    // Append iframe for error situation
+                    const iframe = document.createElement('iframe');
+                    iframe.src = videoUrl;
+                    iframe.width = '100%';  // Ensure iframe takes up full width
+                    iframe.height = '200px';  // You can adjust height as needed
+                    iframeCell.appendChild(iframe);  // Append iframe directly to iframeCell
+
+                    resolve('No');  // If error occurs, video is broken
+                });
+
+                // Add loadedmetadata event listener to detect playable videos
+                videoElement.addEventListener('loadedmetadata', () => {
+                    const endTime = performance.now();  // End time for the request
+                    const requestTime = (endTime - startTime).toFixed(2); // Duration in ms
+                    timeCell.textContent = `${requestTime} ms`;  // Display time it took for the check
+                    clearTimeout(timeout);  // Clear the timeout if metadata is loaded
+                    
+                    // Append iframe for playable video situation (non-interactive thumbnail)
+                    const iframe = document.createElement('iframe');
+                    iframe.src = videoUrl;
+                    iframe.width = '100%';  // Ensure iframe takes up full width
+                    iframe.height = '200px';  // You can adjust height as needed
+                    iframeCell.appendChild(iframe);  // Append iframe directly to iframeCell
+
+                    resolve('Yes');  // If metadata loads successfully, the video is playable
+                });
+            });
+        }
+
+        // Fetching videos.json (assumed to be in the same directory)
+        fetch('videos.json')
+            .then(response => response.json())
+            .then(data => {
+                const videosTableBody = document.getElementById('videos');
+                const waybackUrlQuery = getQueryParam('waybackurl'); // Get the 'waybackurl' query parameter
+
+                // If 'waybackurl' exists in the query string, process that specific video
+                if (waybackUrlQuery) {
+                    const videoRow = document.createElement('tr');
+                    const videoIdCell = document.createElement('td');
+                    const videoTitleCell = document.createElement('td');
+                    const videoUrlCell = document.createElement('td');
+                    const playabilityCell = document.createElement('td');
+                    const timeCell = document.createElement('td');  // New cell for request time
+                    const iframeCell = document.createElement('td');  // New cell for iframe
+
+                    const videoId = "N/A";
+                    const videoLink = document.createElement('a');
+                    videoLink.href = `https://youtube.com/watch?v=${videoId}`;
+                    videoLink.target = '_blank';  // Open link in a new tab
+                    videoLink.textContent = videoId;
+
+                    videoTitleCell.textContent = "N/A";
+                    videoUrlCell.textContent = waybackUrlQuery;
+
+                    // Add "now" link to trigger immediate check
+                    const nowLink = document.createElement('span');
+                    nowLink.textContent = " (now)";
+                    nowLink.classList.add('now-link');
+                    nowLink.onclick = () => checkNow(waybackUrlQuery, playabilityCell, timeCell, iframeCell);
+
+                    videoUrlCell.appendChild(nowLink);
+                    playabilityCell.classList.add('loading-cell');
+                    playabilityCell.textContent = '';  // Empty initially
+                    timeCell.textContent = ''; // Empty initially
+
+                    videoIdCell.appendChild(videoLink);
+
+                    videoRow.appendChild(videoIdCell);
+                    videoRow.appendChild(videoTitleCell);
+                    videoRow.appendChild(videoUrlCell);
+                    videoRow.appendChild(playabilityCell);
+                    videoRow.appendChild(timeCell);  // Append the time column
+                    videoRow.appendChild(iframeCell);  // Append the iframe column
+
+                    videosTableBody.appendChild(videoRow);
+
+                    // Add the video URL and playability check to the queue
+                    videoQueue.push({ playabilityCell, timeCell, iframeCell, videoUrl: waybackUrlQuery });
+                    processQueue();  // Process the queue
+                } else {
+                    // Process all videos in the JSON if no 'waybackurl' query
+                    data.forEach(video => {
+                        const videoRow = document.createElement('tr');
+                        const videoIdCell = document.createElement('td');
+                        const videoTitleCell = document.createElement('td');
+                        const videoUrlCell = document.createElement('td');
+                        const playabilityCell = document.createElement('td');
+                        const timeCell = document.createElement('td');  // New cell for request time
+                        const iframeCell = document.createElement('td');  // New cell for iframe
+
+                        const videoLink = document.createElement('a');
+                        videoLink.href = `https://youtube.com/watch?v=${video.id}`;
+                        videoLink.target = '_blank';
+                        videoLink.textContent = video.id;
+
+                        videoTitleCell.textContent = video.title;
+                        videoUrlCell.textContent = video.waybackurl;
+
+                        // Add "now" link to trigger immediate check
+                        const nowLink = document.createElement('span');
+                        nowLink.textContent = " (now)";
+                        nowLink.classList.add('now-link');
+                        nowLink.onclick = () => checkNow(video.waybackurl, playabilityCell, timeCell, iframeCell);
+
+                        videoUrlCell.appendChild(nowLink);
+                        playabilityCell.classList.add('loading-cell');
+                        playabilityCell.textContent = '';  // Empty initially
+                        timeCell.textContent = ''; // Empty initially
+
+                        videoIdCell.appendChild(videoLink);
+
+                        videoRow.appendChild(videoIdCell);
+                        videoRow.appendChild(videoTitleCell);
+                        videoRow.appendChild(videoUrlCell);
+                        videoRow.appendChild(playabilityCell);
+                        videoRow.appendChild(timeCell);  // Append the time column
+                        videoRow.appendChild(iframeCell);  // Append the iframe column
+
+                        videosTableBody.appendChild(videoRow);
+
+                        // Add the video URL and playability check to the queue
+                        videoQueue.push({ playabilityCell, timeCell, iframeCell, videoUrl: video.waybackurl });
+                        processQueue();  // Process the queue
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading videos.json:', error);
+            });
+
+        // Function to trigger an immediate check for a video
+        function checkNow(url, playabilityCell, timeCell, iframeCell) {
+            // Pause the queue and process the immediate video
+            isQueuePaused = true;
+
+            // Set the active video report
+            updateActiveVideoReport(url);
+
+            // Set "Loading..." immediately
+            playabilityCell.textContent = 'Loading...';
+
+            // Process the immediate check first
+            checkVideoStatus(url, playabilityCell, timeCell, iframeCell)
+                .then((status) => {
+                    playabilityCell.textContent = status;  // Update with the result ("Yes", "No", "timeout")
+
+                    // Resume the queue after the immediate check
+                    isQueuePaused = false;
+                    processQueue();  // Resume processing the queue
+                });
+        }
+
+        // Function to update the active video report
+        function updateActiveVideoReport(videoUrl) {
+            const activeVideoElement = document.getElementById('active-video');
+            activeVideoElement.textContent = `Checking: ${videoUrl}`;
+        }
+
+        // Intersection Observer to load iframe when in the viewport
+        const iframeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // When the iframe is in the viewport, load it
+                    const iframe = entry.target;
+                    iframe.src = iframe.dataset.src;  // Use the data-src attribute for lazy loading
+                    iframeObserver.unobserve(iframe);  // Stop observing once it has loaded
+                }
+            });
+        }, { threshold: 0.5 });  // Load when 50% of the iframe is in the viewport
+
+        // Apply lazy loading to iframe
+        function lazyLoadIframe(iframe) {
+            iframeObserver.observe(iframe);  // Start observing the iframe
+        }
+    </script>
+</body>
+</html>

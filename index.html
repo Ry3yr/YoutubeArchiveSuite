@@ -1,3 +1,4 @@
+<a target="_blank" href="https://codeberg.org/alceawisteria/YoutubeArchiveSuite" style=color:lightgray>src</a>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -155,7 +156,7 @@
       <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
       <div class="links">
         <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
-        <a href="${v.waybackurl}" target="_blank">Wayback</a>
+        <a href="${v.waybackurl}" target="_blank">Wayback</a><a target="_blank" href="waybackurlcheck.html?waybackurl=${v.waybackurl}" style=color:green>(?)</a>
         <a href="javascript:void(0);" class="youtube-link" data-id="${v.id}">YouTube</a>
         <a href="https://web.archive.org/web/2oe_/http://wayback-fakeurl.archive.org/yt/${v.id}" target="_blank" ><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT61taAw7gmjapOgSz2nugoCrazkCg42il25A&s" width=24px></a>
       </div>
