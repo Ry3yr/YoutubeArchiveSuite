@@ -1,4 +1,4 @@
-<a target="_blank" href="vidcompare.html" style=color:blue>JSON - FileCompare</a><hr>
+<a target="_blank" href="vidcompare.html" style="color:blue">JSON - FileCompare</a><hr>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,6 +50,7 @@
 			<th>Uploaded</th>
 			<th>Direct Link</th>
 			<th>Wayback Link</th>
+			<th>HiDrive</th> <!-- Added -->
 		</tr>
 	</thead>
 	<tbody id="videos"></tbody>
@@ -59,7 +60,6 @@
 (async () => {
 	const videosEl = document.getElementById('videos');
 
-	// Fetch the videos.json
 	try {
 		const res = await fetch('videos.json');
 		if (!res.ok) {
@@ -68,24 +68,21 @@
 
 		const videos = await res.json();
 
-		// Render videos in the table
 		videos.forEach(v => {
 			const row = document.createElement('tr');
+			const videoLink = `<a target="_blank" href="https://m.youtube.com/watch?v=${v.id}" target="_blank">${v.title}</a>`;
+			const hiDriveLink = `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4`;
 
-			// Create a clickable link for the video title
-			const videoLink = `<a href="https://m.youtube.com/watch?v=${v.id}" target="_blank">${v.title}</a>`;
-
-			// Add the video details in table cells
 			row.innerHTML = `
 				<td>${videoLink}</td>
 				<td>${v.uploader}</td>
 				<td>${v.id ?? 'N/A'}</td>
 				<td>${new Date(v.uploaded).toLocaleString()}</td>
-				<td><a href="${v.url}">Direct</a></td>
-				<td><a href="${v.waybackurl}">Wayback</a></td>
+				<td><a target="_blank" href="fin/${v.id}.mp4">Direct</a></td>
+				<td><a target="_blank" href="${v.waybackurl}">Wayback</a></td>
+				<td><a target="_blank" href="${hiDriveLink}">HiDrive</a></td>
 			`;
 
-			// Append the row to the table body
 			videosEl.appendChild(row);
 		});
 	} catch (e) {
