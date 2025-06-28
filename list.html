@@ -72,6 +72,8 @@
 			const row = document.createElement('tr');
 			const videoLink = `<a target="_blank" href="https://m.youtube.com/watch?v=${v.id}" target="_blank">${v.title}</a>`;
 			const hiDriveLink = `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4`;
+                        //const synchidrive2wayback  = `https://alceawis.de/other/extra/fetchdata/2025-06-28-FileServerUpload/2025-06-28-MultiUpload%28SFTP-FTP%29/upload.php?server=webdav.hidrive.strato.com&protocol=webdav&path=%2Fpublic%2Fytarchive%2F&upload_type=url&url=${v.waybackurl}`;
+                        const synchidrive2wayback  = `https://alceawis.de/other/extra/fetchdata/2025-06-28-FileServerUpload/2025-06-28-MultiUpload%28SFTP-FTP%29/upload.php?server=webdav.hidrive.strato.com&protocol=webdav&path=%2Fpublic%2Fytarchive%2F&upload_type=url&url=https://alcea-wisteria.de/ytarchive/fin/${v.id}.mp4`;
 
 			row.innerHTML = `
 				<td>${videoLink}</td>
@@ -80,7 +82,7 @@
 				<td>${new Date(v.uploaded).toLocaleString()}</td>
 				<td><a target="_blank" href="fin/${v.id}.mp4">Direct</a></td>
 				<td><a target="_blank" href="${v.waybackurl}">Wayback</a></td>
-				<td><a target="_blank" href="${hiDriveLink}">HiDrive</a></td>
+				<td><a target="_blank" href="${hiDriveLink}">HiDrive</a> (<a target="_blank" href="${synchidrive2wayback}">sync</a>)</td>
 			`;
 
 			videosEl.appendChild(row);
