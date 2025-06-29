@@ -1,32 +1,4 @@
-<?php
-$correct_username = "admin";
-$correct_password = "1234"; // Use a strong password for production
-session_start();
-if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-echo "Welcome, you are logged in!<hr>";
-} else {
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-$username = $_POST['username'];
-$password = $_POST['password'];
-if ($username === $correct_username && $password === $correct_password) {
-$_SESSION['logged_in'] = true;
-echo "Login successful. Welcome!";
-header("Location: " . $_SERVER['PHP_SELF']);
-exit;
-} else {
-echo "Invalid username or password.<hr>";
-}
-}
-echo '<form method="post">
-<label for="username">Username:</label>
-<input type="text" id="username" name="username" value="admin" required><br>
-<label for="password">Password:</label>
-<input type="password" id="password" name="password" required><br>
-<button type="submit">Login</button>
-</form>';
-exit();
-}
-?>
+
 
 
 <style>summary {list-style: none;}summary::-webkit-details-marker {display: none;}</style><details>
@@ -36,7 +8,7 @@ function stringToArrayBuffer(e){return(new TextEncoder).encode(e)}function array
 </script>
 <form onsubmit="handleDecrypt(event)">
 <input type="password" id="password" required>
-<textarea id="encryptedOutput" rows="10" cols="50" style="display: none;">4062d585bc375473ec8b0cf72bb04ff8d1b2c812de5ae7903eaf048383df4033c93f847da153b6ab08cf8621149af21ed1bb618decc98413fe4929a7a8bb77f09961ce495d9bf8697e4c4326ff32b9a5d91e5c9c8fdaa94793d06ca1d1cd8414ef33ec29c9ebcbe58dacf2dee3618f04d90c38413cddb014bebd4bd1bbb0444500d0ba37d8267bedbce34e4a1c72eb9a008e6c970c9f55717cf5b719ca84ec300cc1d3055ba52a65f2818646220da577</textarea>
+<textarea id="encryptedOutput" rows="10" cols="50" style="display: none;">4062d585bc375473ec8b0cf72bb04ff8d1b2c812de5ae7903eaf048383df4033c93f847da153b6ab08cf8621149af21ed1bb618decc98413fe4929a7a8bb77f09961ce495d9bf8697e4c4326ff32b9a5d91e5c9c8fdaa94793d06ce3618f04d90c38413cddb014bebd4bd1bbb0444500d0ba37d8267bedbce34e4a1c72eb9a008e6c970c9f55717cf5b719ca84ec300cc1d3055ba52a65f2818646220da577</textarea>
 <input type="submit" value="OpenSesame">
 </form><div><div id="decryptedOutput"></div></div>
 
@@ -64,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <?php
+ini_set('memory_limit', '512M');
 define('JSON_FILE', 'videos.json');
 define('MAX_SIZE',  500 * 1024 * 1024); // 500MB
 define('MIN_SIZE',  100 * 1024); // 100KB
