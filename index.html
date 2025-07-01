@@ -219,13 +219,23 @@
 
 
       // Load video data
-      try {
-        const localUrl = new URL('videos.json', location.href);
-        localUrl.searchParams.set('_', Date.now());
-        const res = await fetch(localUrl.toString(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('Local load failed');
-        videos = await res.json();
-      } catch {
+try {
+  // First attempt: relative to window.location.href
+  let localUrl = new URL('videos.json', window.location.href);
+  localUrl.searchParams.set('_', Date.now());
+  let res = await fetch(localUrl.toString(), { cache: 'no-store' });
+
+  // If the first attempt fails, try relative to the current directory (`./videos.json`)
+  if (!res.ok) {
+    localUrl = new URL('./videos.json', '.');
+    localUrl.searchParams.set('_', Date.now());
+    res = await fetch(localUrl.toString(), { cache: 'no-store' });
+
+    if (!res.ok) throw new Error('Both local attempts failed');
+  }
+
+  videos = await res.json();
+} catch {
         const res = await fetch('https://ry3yr.github.io/videos.json', { cache: 'no-store' });
         if (!res.ok) {
           errorEl.textContent = 'Failed to load videos from both sources.';
