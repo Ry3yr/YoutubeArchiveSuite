@@ -1,4 +1,9 @@
 <a target="_blank" href="https://codeberg.org/alceawisteria/YoutubeArchiveSuite" style=color:lightgray>src</a>
+<details><summary>debug</summary>
+<a target="_blank" href="https://alceawis.de/other/extra/scripts/fakesocialmedia/commentload.html?number=4000&text=%F0%92%90%ABI%20changed%20%20%20%20%20%7B%0D%0A%20%20%20%20%20%20" style=color:blue>Loading issues with long video titles</a>
+</details>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,28 +109,30 @@
         body{font-family:Arial,sans-serif;margin:20px}.video-links{list-style-type:none;padding:0}.video-links li{margin:10px 0}.video-links a{text-decoration:none;color:#007bff;font-size:16px}.video-links a:hover{text-decoration:underline}
     </style>
 <ul class="video-links" id="video-list"></ul>
-    <script>
-        async function fetchVideos() {
-            try {
-                const response = await fetch('videos.json?' + new Date().getTime());
-                const videos = await response.json();
-                //const latestVideos = videos.slice(0, 3);
-                const latestVideos = videos.slice(-3);
-                const videoList = document.getElementById('video-list');
-                latestVideos.forEach(video => {
-                    const listItem = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.href = `?limit=8&extendedsearch=true&videoid=${video.id}`;
-                    link.textContent = `${video.title}`;
-                    listItem.appendChild(link);
-                    videoList.appendChild(listItem);
-                });
-            } catch (error) {
-                console.error("Error fetching videos:", error);
-            }
+<script>
+    async function fetchVideos() {
+        try {
+            const response = await fetch('videos.json?' + new Date().getTime());
+            const videos = await response.json();
+            const latestVideos = videos.slice(-3);
+            const videoList = document.getElementById('video-list');
+
+            latestVideos.forEach(video => {
+                const index = videos.indexOf(video); // Get original index
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = `?limit=8&extendedsearch=true&videoid=${video.id}`;
+                link.textContent = `${index + 1}. ${video.title}`; // Show 1-based index
+                listItem.appendChild(link);
+                videoList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Error fetching videos:", error);
         }
-        fetchVideos();
-    </script><hr>
+    }
+    fetchVideos();
+</script>
+
 
 
   <div id="search-container">
