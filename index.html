@@ -146,238 +146,228 @@
   <div id="videos"></div>
   <div id="error"></div>
 
-  <script>
-    (async () => {
-      const errorEl = document.getElementById('error');
-      const videosEl = document.getElementById('videos');
-      const searchInput = document.getElementById('search');
-      const checkLinksButton = document.getElementById('check-links');
+<script>
+(async () => {
+  const errorEl = document.getElementById('error');
+  const videosEl = document.getElementById('videos');
+  const searchInput = document.getElementById('search');
+  const checkLinksButton = document.getElementById('check-links');
 
-      // Helper: check if a URL is reachable
-      async function isReachable(url) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-          const res = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          return res.ok || (res.status >= 300 && res.status < 400);
-        } catch {
-          return false;
+  async function isReachable(url) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
+      return res.ok || (res.status >= 300 && res.status < 400);
+    } catch {
+      return false;
+    }
+  }
+
+  let videos = [];
+
+  function renderVideos(list) {
+    videosEl.innerHTML = '';
+    for (const v of list) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const videoId = `video-${v.id}`;
+      const unreachableClass = v.directOk === false ? 'direct-unreachable' : '';
+
+      card.innerHTML = `
+        <div class="video-container">
+          <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
+        </div>
+        <h3>${v.title}</h3>
+        <p>Uploader: ${v.uploader}</p>
+        <p>ID: ${v.id ?? 'N/A'}</p>
+        <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+        <div class="links">
+          <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
+          <a href="${v.waybackurl}" target="_blank">Wayback</a><a target="_blank" href="waybackurlcheck.html?waybackurl=${v.waybackurl}" style="color:green">(?)</a>
+          <a href="javascript:void(0);" class="youtube-link" data-id="${v.id}">YouTube</a>
+          <a href="https://web.archive.org/web/2oe_/http://wayback-fakeurl.archive.org/yt/${v.id}" target="_blank"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT61taAw7gmjapOgSz2nugoCrazkCg42il25A&s" width="20px"></a>
+          <a href="https://preservetube.com/watch?v=${v.id}" target="_blank"><img src="https://i.ibb.co/SXjxP6v6/Screenshot-20250625-224044-Brave.png" width="20px"></a>
+          <a href="https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4" target="_blank"><img src="https://media.technologycounter.com/vendors/software-products/software-logo/hidrive.jpg" width="20px"></a>
+        </div>
+        <div class="current-link"></div>
+        <button class="toggle-src" data-id="#">🔁 Switch</button>
+      `;
+
+      videosEl.appendChild(card);
+
+      const toggleBtn = card.querySelector('.toggle-src');
+      const videoEl = card.querySelector('video');
+      const currentLinkContainer = card.querySelector('.current-link');
+      const sources = [
+        { url: `fin/${v.id}.mp4`, label: '🔁 Switch' },
+        { url: `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4`, label: '🔁 Switch' },
+        { url: v.waybackurl, label: '🔁 Switch' },
+      ];
+      let currentIndex = 0;
+      toggleBtn.addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % sources.length;
+        videoEl.src = sources[currentIndex].url;
+        toggleBtn.textContent = sources[currentIndex].label;
+        let currentLink = currentLinkContainer.querySelector('a');
+        if (!currentLink) {
+          currentLink = document.createElement('a');
+          currentLink.target = '_blank';
+          currentLink.textContent = '🔗 Current Link';
+          currentLinkContainer.appendChild(currentLink);
         }
-      }
-
-      let videos = [];
-
-      function renderVideos(list) {
-  videosEl.innerHTML = '';
-  for (const v of list) {
-    const card = document.createElement('div');
-    card.className = 'card';
-
-    const videoId = `video-${v.id}`;
-
-    const unreachableClass = v.directOk === false ? 'direct-unreachable' : '';
-    const directAvailable = v.directOk === true;
-
-    card.innerHTML = `
-      <div class="video-container">
-        <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
-      </div>
-      <h3>${v.title}</h3>
-      <p>Uploader: ${v.uploader}</p>
-      <p>ID: ${v.id ?? 'N/A'}</p>
-      <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
-      <div class="links">
-        <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
-        <a href="${v.waybackurl}" target="_blank">Wayback</a><a target="_blank" href="waybackurlcheck.html?waybackurl=${v.waybackurl}" style=color:green>(?)</a>
-        <a href="javascript:void(0);" class="youtube-link" data-id="${v.id}">YouTube</a>
-        <a href="https://web.archive.org/web/2oe_/http://wayback-fakeurl.archive.org/yt/${v.id}" target="_blank" ><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT61taAw7gmjapOgSz2nugoCrazkCg42il25A&s" width=20px></a>
-          <a href="https://preservetube.com/watch?v=${v.id}" target="_blank" ><img src="https://i.ibb.co/SXjxP6v6/Screenshot-20250625-224044-Brave.png" width=20px></a>
-          <a href="https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4" target="_blank" ><img src="https://media.technologycounter.com/vendors/software-products/software-logo/hidrive.jpg" width=20px></a>
-      </div>
-      <div class="current-link"></div>
-      <button class="toggle-src" data-id="#">🔁 Switch</button>
-    `;
-    videosEl.appendChild(card);
-
-const toggleBtn = card.querySelector('.toggle-src');
-const videoEl = card.querySelector('video');
-const currentLinkContainer = card.querySelector('.current-link'); // Assuming you have a container for the current link
-const sources = [
-  { url: `fin/${v.id}.mp4`, label: '🔁 Switch' },
-  { url: `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4`, label: '🔁 Switch' },
-  { url: v.waybackurl, label: '🔁 Switch' },
-];
-let currentIndex = 0;
-toggleBtn.addEventListener('click', () => {
-  currentIndex = (currentIndex + 1) % sources.length;
-  videoEl.src = sources[currentIndex].url;
-  toggleBtn.textContent = sources[currentIndex].label;
-  let currentLink = currentLinkContainer.querySelector('a');
-  if (!currentLink) {
-    currentLink = document.createElement('a');
-    currentLink.target = '_blank';
-    currentLink.textContent = '🔗 Current Link';
-    currentLinkContainer.appendChild(currentLink);
+        currentLink.href = sources[currentIndex].url;
+        if (sources[currentIndex].url.includes("fin")) {
+          currentLink.textContent = '🔗 Direct Link';
+        } else if (sources[currentIndex].url.includes("hidrive")) {
+          currentLink.textContent = '🔗 Hidrive Link';
+        } else if (sources[currentIndex].url.includes("web.archive")) {
+          currentLink.textContent = '🔗 Archive Link';
+        }
+      });
+    }
   }
-  currentLink.href = sources[currentIndex].url;
-  if (sources[currentIndex].url.includes("fin")) {
-    currentLink.textContent = '🔗 Direct Link';
-  } else if (sources[currentIndex].url.includes("hidrive")) {
-    currentLink.textContent = '🔗 Hidrive Link';
-  } else if (sources[currentIndex].url.includes("web.archive")) {
-    currentLink.textContent = '🔗 Archive Link';
-  }
-});
 
-
-  }
-}
-
-
-      // Load video data
-try {
-  // First attempt: relative to window.location.href
-  let localUrl = new URL('videos.json', window.location.href);
-  localUrl.searchParams.set('_', Date.now());
-  let res = await fetch(localUrl.toString(), { cache: 'no-store' });
-
-  // If the first attempt fails, try relative to the current directory (`./videos.json`)
-  if (!res.ok) {
-    localUrl = new URL('./videos.json', '.');
+  try {
+    let localUrl = new URL('videos.json', window.location.href);
     localUrl.searchParams.set('_', Date.now());
-    res = await fetch(localUrl.toString(), { cache: 'no-store' });
-
-    if (!res.ok) throw new Error('Both local attempts failed');
+    let res = await fetch(localUrl.toString(), { cache: 'no-store' });
+    if (!res.ok) {
+      localUrl = new URL('./videos.json', '.');
+      localUrl.searchParams.set('_', Date.now());
+      res = await fetch(localUrl.toString(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('Both local attempts failed');
+    }
+    videos = await res.json();
+  } catch {
+    const res = await fetch('https://ry3yr.github.io/videos.json', { cache: 'no-store' });
+    if (!res.ok) {
+      errorEl.textContent = 'Failed to load videos from both sources.';
+      return;
+    }
+    videos = await res.json();
   }
 
-  videos = await res.json();
-} catch {
-        const res = await fetch('https://ry3yr.github.io/videos.json', { cache: 'no-store' });
-        if (!res.ok) {
-          errorEl.textContent = 'Failed to load videos from both sources.';
-          return;
-        }
-        videos = await res.json();
-      }
+  const params = new URLSearchParams(window.location.search);
+  const limit = parseInt(params.get('limit')) || 0; // Default to 0 (show all) if not specified
+  const videoId = params.get('videoid');
+  
+  // Create a copy of the full array or limited version
+  const initialVideos = limit > 0 ? videos.slice(0, limit) : [...videos];
+  
+  searchInput.placeholder = `Search ${videos.length} videos...`;
 
-      // Apply query limit
-      const params = new URLSearchParams(window.location.search);
-      const limit = parseInt(params.get('limit'));
-      const videoId = params.get('videoid');
-      const limitedVideos = limit > 0 ? videos.slice(0, limit) : videos;
-      searchInput.placeholder = `Search ${videos.length} videos...`;
+  renderVideos(initialVideos);
 
-      // Initial render (wayback only)
-      renderVideos(limitedVideos);
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.trim().toLowerCase();
+    let filtered = [...videos]; // Always start with full array
+    
+    if (query) {
+      filtered = videos.filter(v =>
+        (v.title?.toLowerCase().includes(query)) ||
+        (v.uploader?.toLowerCase().includes(query)) ||
+        (v.id?.toString().toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply limit only after filtering if specified
+    if (limit > 0) filtered = filtered.slice(0, limit);
+    
+    renderVideos(filtered);
+  });
 
-      // Search filtering
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim().toLowerCase();
-        let filtered = videos;
-        if (query) {
-          filtered = videos.filter(v =>
-            (v.title?.toLowerCase().includes(query)) ||
-            (v.uploader?.toLowerCase().includes(query)) ||
-            (v.id?.toString().toLowerCase().includes(query))
-          );
-        }
-        if (limit > 0) {
-          filtered = filtered.slice(0, limit);
-        }
-        renderVideos(filtered);
-      });
+  if (videoId) {
+    searchInput.value = videoId;
+    searchInput.dispatchEvent(new Event('input'));
+  }
 
-      // Pre-fill search if videoid provided
-      if (videoId) {
-        searchInput.value = videoId;
-        searchInput.dispatchEvent(new Event('input'));
-      }
+  checkLinksButton.addEventListener('click', async () => {
+    checkLinksButton.disabled = true;
+    checkLinksButton.textContent = '⏳ Checking...';
+    for (const v of videos) {
+      v.directOk = await isReachable(v.url);
+    }
+    checkLinksButton.disabled = false;
+    checkLinksButton.textContent = '🔍 Check Direct Links';
+    
+    // Re-render with current filter/limit
+    const query = searchInput.value.trim().toLowerCase();
+    let filtered = [...videos];
+    if (query) {
+      filtered = videos.filter(v =>
+        (v.title?.toLowerCase().includes(query)) ||
+        (v.uploader?.toLowerCase().includes(query)) ||
+        (v.id?.toString().toLowerCase().includes(query))
+      );
+    }
+    if (limit > 0) filtered = filtered.slice(0, limit);
+    renderVideos(filtered);
+  });
 
-      // Check links button
-      checkLinksButton.addEventListener('click', async () => {
-        checkLinksButton.disabled = true;
-        checkLinksButton.textContent = '⏳ Checking...';
-        for (const v of videos) {
-          v.directOk = await isReachable(v.url);
-        }
-        checkLinksButton.disabled = false;
-        checkLinksButton.textContent = '🔍 Check Direct Links';
-        renderVideos(videos);
-      });
+  const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
+  if (isExtendedSearchActive) {
+    localStorage.setItem('extendedsearch', 'true');
+    const suggestionList = document.createElement('ul');
+    Object.assign(suggestionList.style, {
+      position: 'absolute',
+      maxHeight: '300px',
+      overflowY: 'auto',
+      width: '100%',
+      backgroundColor: '#fff',
+      border: '1px solid #ccc',
+      borderRadius: '6px',
+      zIndex: '10',
+      listStyle: 'none',
+      padding: '0',
+      margin: '0'
+    });
+    searchInput.parentElement.appendChild(suggestionList);
 
-      // Extended search suggestions
-      const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
-      if (isExtendedSearchActive) {
-        localStorage.setItem('extendedsearch', 'true');
-        const suggestionList = document.createElement('ul');
-        Object.assign(suggestionList.style, {
-          position: 'absolute',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          width: '100%',
-          backgroundColor: '#fff',
-          border: '1px solid #ccc',
-          borderRadius: '6px',
-          zIndex: '10',
-          listStyle: 'none',
-          padding: '0',
-          margin: '0'
-        });
-        searchInput.parentElement.appendChild(suggestionList);
-
-        searchInput.addEventListener('input', () => {
-          const query = searchInput.value.trim().toLowerCase();
-          suggestionList.innerHTML = '';
-          if (query) {
-            const filtered = videos.filter(v => v.title?.toLowerCase().includes(query));
-            filtered.forEach(v => {
-              const item = document.createElement('li');
-              item.style.padding = '0.5rem';
-              item.style.cursor = 'pointer';
-              item.textContent = v.title;
-              item.addEventListener('click', () => {
-                searchInput.value = v.title;
-                suggestionList.innerHTML = '';
-                searchInput.dispatchEvent(new Event('input'));
-              });
-              suggestionList.appendChild(item);
-            });
-          }
-        });
-
-        searchInput.addEventListener('blur', () => {
-          setTimeout(() => suggestionList.innerHTML = '', 200);
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      suggestionList.innerHTML = '';
+      if (query) {
+        const filtered = videos.filter(v => v.title?.toLowerCase().includes(query));
+        filtered.forEach(v => {
+          const item = document.createElement('li');
+          item.style.padding = '0.5rem';
+          item.style.cursor = 'pointer';
+          item.textContent = v.title;
+          item.addEventListener('click', () => {
+            searchInput.value = v.title;
+            suggestionList.innerHTML = '';
+            searchInput.dispatchEvent(new Event('input'));
+          });
+          suggestionList.appendChild(item);
         });
       }
-    })();
+    });
+
+    searchInput.addEventListener('blur', () => {
+      setTimeout(() => suggestionList.innerHTML = '', 200);
+    });
+  }
+})();
 
 document.addEventListener('click', function(event) {
-    if (event.target && event.target.classList.contains('youtube-link')) {
-      const videoId = event.target.getAttribute('data-id');
-      const videoContainer = event.target.closest('.card').querySelector('.video-container');
-      
-      // Create the YouTube embed iframe
-      const iframe = document.createElement('iframe');
-      iframe.width = '100%';
-      iframe.height = '315';
-      iframe.src = `https://www.youtube.com/embed/${videoId}`;
-      iframe.frameBorder = '0';
-      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-      iframe.allowFullscreen = true;
-      
-      // Replace the existing video element with the iframe
-      videoContainer.innerHTML = '';  // Clear existing video
-      videoContainer.appendChild(iframe);
-      
-      // Optionally, change the "YouTube" link text to something else
-      event.target.textContent = 'YouTube (Playing)';
-      event.target.classList.add('playing');
-    }
-  });
-  </script>
+  if (event.target && event.target.classList.contains('youtube-link')) {
+    const videoId = event.target.getAttribute('data-id');
+    const videoContainer = event.target.closest('.card').querySelector('.video-container');
+    const iframe = document.createElement('iframe');
+    iframe.width = '100%';
+    iframe.height = '315';
+    iframe.src = `https://www.youtube.com/embed/${videoId}`;
+    iframe.frameBorder = '0';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    iframe.allowFullscreen = true;
+    videoContainer.innerHTML = '';
+    videoContainer.appendChild(iframe);
+    event.target.textContent = 'YouTube (Playing)';
+    event.target.classList.add('playing');
+  }
+});
+</script>
 </body>
 </html>
