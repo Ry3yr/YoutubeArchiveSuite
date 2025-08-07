@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video JSON Testing Suite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3 {
+            color: #333;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .test-results {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 3px;
+        }
+        
+        .pass {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .fail {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: #FF9800;
+            font-weight: bold;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background: #0b7dda;
+        }
+        
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        
+        .error-box {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        .stat-card h3 {
+            margin-top: 0;
+            color: #2196F3;
+        }
+        
+        .video-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+        }
+        
+        .bad-item {
+            background-color: #ffebee;
+        }
+        
+        .tab-container {
+            margin-top: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            margin-bottom: -1px;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        
+        .tab-button.active {
+            background: white;
+            border-bottom: 1px solid white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 0 5px 5px 5px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video JSON Testing Suite</h1>
+        
+        <div id="error-message" class="error-box" style="display: none;"></div>
+        
+        <div class="test-section">
+            <h2>1. JSON Loading Test</h2>
+            <button id="load-test">Run Loading Test</button>
+            <div id="load-results" class="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. Schema Validation</h2>
+            <button id="schema-test">Run Schema Validation</button>
+            <div id="schema-results" class="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. Data Integrity Tests</h2>
+            <button id="integrity-test">Run Integrity Tests</button>
+            <div id="integrity-results" class="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>4. URL Validation</h2>
+            <button id="url-test">Run URL Tests</button>
+            <div id="url-results" class="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>5. Statistics & Analysis</h2>
+            <button id="stats-test">Run Analysis</button>
+            <div id="stats-results" class="test-results"></div>
+        </div>
+        
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="all-videos-tab">All Videos</button>
+                <button class="tab-button" data-tab="problem-videos-tab">Problem Videos</button>
+                <button class="tab-button" data-tab="raw-json-tab">Raw JSON</button>
+            </div>
+            
+            <div id="all-videos-tab" class="tab-content active">
+                <h3>All Videos (First 50)</h3>
+                <div id="videos-list"></div>
+            </div>
+            
+            <div id="problem-videos-tab" class="tab-content">
+                <h3>Videos with Issues</h3>
+                <div id="problems-list"></div>
+            </div>
+            
+            <div id="raw-json-tab" class="tab-content">
+                <h3>Raw JSON Data</h3>
+                <pre id="json-output"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (async () => {
+        // DOM elements
+        const errorEl = document.getElementById('error-message');
+        const loadTestBtn = document.getElementById('load-test');
+        const loadResults = document.getElementById('load-results');
+        const schemaTestBtn = document.getElementById('schema-test');
+        const schemaResults = document.getElementById('schema-results');
+        const integrityTestBtn = document.getElementById('integrity-test');
+        const integrityResults = document.getElementById('integrity-results');
+        const urlTestBtn = document.getElementById('url-test');
+        const urlResults = document.getElementById('url-results');
+        const statsTestBtn = document.getElementById('stats-test');
+        const statsResults = document.getElementById('stats-results');
+        const videosList = document.getElementById('videos-list');
+        const problemsList = document.getElementById('problems-list');
+        const jsonOutput = document.getElementById('json-output');
+        
+        // Test data
+        let videos = [];
+        let problems = [];
+        
+        // Expected schema
+        const expectedSchema = {
+            id: 'string',
+            title: 'string',
+            uploader: 'string',
+            uploaded: 'string', // ISO date string
+            url: 'string', // URL
+            waybackurl: 'string' // URL
+        };
+        
+        // 1. JSON Loading Test
+        loadTestBtn.addEventListener('click', async () => {
+            loadTestBtn.disabled = true;
+            loadResults.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('videos.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const jsonText = await response.text();
+                videos = JSON.parse(jsonText);
+                
+                if (!Array.isArray(videos)) {
+                    throw new Error('Expected an array of videos');
+                }
+                
+                loadResults.innerHTML = `
+                    <span class="pass">✓ PASS</span> 
+                    Successfully loaded ${videos.length} videos
+                    <p>First video ID: ${videos[0]?.id || 'N/A'}</p>
+                `;
+                
+                // Display first 50 videos
+                displayVideos(videos.slice(0, 50));
+                jsonOutput.textContent = jsonText;
+                
+            } catch (error) {
+                loadResults.innerHTML = `
+                    <span class="fail">✗ FAIL</span> 
+                    Failed to load videos.json: ${error.message}
+                `;
+                errorEl.style.display = 'block';
+                errorEl.innerHTML = `
+                    <h3>Error Loading JSON</h3>
+                    <pre>${error.stack}</pre>
+                    <button onclick="location.reload()">Retry</button>
+                `;
+            } finally {
+                loadTestBtn.disabled = false;
+            }
+        });
+        
+        // 2. Schema Validation
+        schemaTestBtn.addEventListener('click', () => {
+            schemaTestBtn.disabled = true;
+            schemaResults.innerHTML = 'Testing...';
+            
+            try {
+                if (videos.length === 0) {
+                    throw new Error('No videos loaded. Run the loading test first.');
+                }
+                
+                let schemaErrors = 0;
+                const schemaProblems = [];
+                
+                videos.forEach((video, index) => {
+                    const videoErrors = [];
+                    
+                    // Check each expected field
+                    for (const [field, type] of Object.entries(expectedSchema)) {
+                        if (!video.hasOwnProperty(field)) {
+                            videoErrors.push(`Missing field: ${field}`);
+                        } else if (typeof video[field] !== type) {
+                            videoErrors.push(`Invalid type for ${field}: expected ${type}, got ${typeof video[field]}`);
+                        }
+                    }
+                    
+                    if (videoErrors.length > 0) {
+                        schemaProblems.push({
+                            index,
+                            id: video.id,
+                            errors: videoErrors
+                        });
+                        schemaErrors++;
+                    }
+                });
+                
+                problems = problems.concat(schemaProblems.map(p => ({
+                    type: 'Schema Error',
+                    video: p.id,
+                    message: p.errors.join(', ')
+                })));
+                
+                if (schemaErrors === 0) {
+                    schemaResults.innerHTML = `
+                        <span class="pass">✓ PASS</span> 
+                        All ${videos.length} videos match the expected schema
+                    `;
+                } else {
+                    schemaResults.innerHTML = `
+                        <span class="fail">✗ FAIL</span> 
+                        Found schema errors in ${schemaErrors} videos
+                        <p>First problematic video: ${schemaProblems[0].id} (index ${schemaProblems[0].index})</p>
+                        <p>Errors: ${schemaProblems[0].errors.join(', ')}</p>
+                    `;
+                }
+                
+                displayProblems();
+                
+            } catch (error) {
+                schemaResults.innerHTML = `
+                    <span class="fail">✗ FAIL</span> 
+                    Schema validation failed: ${error.message}
+                `;
+            } finally {
+                schemaTestBtn.disabled = false;
+            }
+        });
+        
+        // 3. Data Integrity Tests
+        integrityTestBtn.addEventListener('click', () => {
+            integrityTestBtn.disabled = true;
+            integrityResults.innerHTML = 'Testing...';
+            
+            try {
+                if (videos.length === 0) {
+                    throw new Error('No videos loaded. Run the loading test first.');
+                }
+                
+                const integrityProblems = [];
+                let duplicateIds = 0;
+                let invalidDates = 0;
+                let emptyFields = 0;
+                
+                // Check for duplicate IDs
+                const idMap = {};
+                videos.forEach(video => {
+                    idMap[video.id] = (idMap[video.id] || 0) + 1;
+                });
+                
+                videos.forEach((video, index) => {
+                    const videoErrors = [];
+                    
+                    // Check for duplicate IDs
+                    if (idMap[video.id] > 1) {
+                        videoErrors.push(`Duplicate ID (appears ${idMap[video.id]} times)`);
+                        duplicateIds++;
+                    }
+                    
+                    // Check date format
+                    if (isNaN(new Date(video.uploaded).getTime())) {
+                        videoErrors.push(`Invalid date: ${video.uploaded}`);
+                        invalidDates++;
+                    }
+                    
+                    // Check for empty fields
+                    for (const field of Object.keys(expectedSchema)) {
+                        if (!video[field] || String(video[field]).trim() === '') {
+                            videoErrors.push(`Empty ${field}`);
+                            emptyFields++;
+                        }
+                    }
+                    
+                    if (videoErrors.length > 0) {
+                        integrityProblems.push({
+                            index,
+                            id: video.id,
+                            errors: videoErrors
+                        });
+                    }
+                });
+                
+                problems = problems.concat(integrityProblems.map(p => ({
+                    type: 'Data Integrity',
+                    video: p.id,
+                    message: p.errors.join(', ')
+                })));
+                
+                // Display results
+                let resultHTML = '';
+                
+                if (duplicateIds === 0 && invalidDates === 0 && emptyFields === 0) {
+                    resultHTML = `
+                        <span class="pass">✓ PASS</span> 
+                        All data integrity checks passed
+                    `;
+                } else {
+                    resultHTML = `
+                        <span class="fail">✗ FAIL</span> 
+                        Found data integrity issues:
+                        <ul>
+                            <li>Duplicate IDs: ${duplicateIds}</li>
+                            <li>Invalid dates: ${invalidDates}</li>
+                            <li>Empty fields: ${emptyFields}</li>
+                        </ul>
+                    `;
+                    
+                    if (integrityProblems.length > 0) {
+                        resultHTML += `
+                            <p>First problematic video: ${integrityProblems[0].id}</p>
+                            <p>Errors: ${integrityProblems[0].errors.join(', ')}</p>
+                        `;
+                    }
+                }
+                
+                integrityResults.innerHTML = resultHTML;
+                displayProblems();
+                
+            } catch (error) {
+                integrityResults.innerHTML = `
+                    <span class="fail">✗ FAIL</span> 
+                    Data integrity test failed: ${error.message}
+                `;
+            } finally {
+                integrityTestBtn.disabled = false;
+            }
+        });
+        
+        // 4. URL Validation
+        urlTestBtn.addEventListener('click', async () => {
+            urlTestBtn.disabled = true;
+            urlResults.innerHTML = 'Testing... This may take a few moments.';
+            
+            try {
+                if (videos.length === 0) {
+                    throw new Error('No videos loaded. Run the loading test first.');
+                }
+                
+                // Test a sample of URLs (first 5 for demo)
+                const testSample = videos.slice(0, 5);
+                const urlProblems = [];
+                let invalidUrls = 0;
+                let unreachableUrls = 0;
+                
+                for (const video of testSample) {
+                    const videoErrors = [];
+                    
+                    // Validate URL format
+                    try {
+                        new URL(video.url);
+                    } catch (e) {
+                        videoErrors.push(`Invalid URL format: ${video.url}`);
+                        invalidUrls++;
+                    }
+                    
+                    // Validate Wayback URL format
+                    try {
+                        new URL(video.waybackurl);
+                    } catch (e) {
+                        videoErrors.push(`Invalid Wayback URL format: ${video.waybackurl}`);
+                        invalidUrls++;
+                    }
+                    
+                    // Check URL reachability (using no-cors to avoid CORS issues)
+                    try {
+                        const response = await fetch(video.url, { method: 'HEAD', mode: 'no-cors' });
+                        if (!response.ok) {
+                            videoErrors.push(`URL not reachable (HTTP ${response.status})`);
+                            unreachableUrls++;
+                        }
+                    } catch (error) {
+                        videoErrors.push(`URL check failed: ${error.message}`);
+                        unreachableUrls++;
+                    }
+                    
+                    if (videoErrors.length > 0) {
+                        urlProblems.push({
+                            id: video.id,
+                            errors: videoErrors
+                        });
+                    }
+                }
+                
+                problems = problems.concat(urlProblems.map(p => ({
+                    type: 'URL Problem',
+                    video: p.id,
+                    message: p.errors.join(', ')
+                })));
+                
+                // Display results
+                let resultHTML = '';
+                
+                if (invalidUrls === 0 && unreachableUrls === 0) {
+                    resultHTML = `
+                        <span class="pass">✓ PASS</span> 
+                        All tested URLs are valid and reachable
+                        <p>Tested ${testSample.length} sample URLs</p>
+                    `;
+                } else {
+                    resultHTML = `
+                        <span class="fail">✗ FAIL</span> 
+                        Found URL issues in sample:
+                        <ul>
+                            <li>Invalid URLs: ${invalidUrls}</li>
+                            <li>Unreachable URLs: ${unreachableUrls}</li>
+                        </ul>
+                        <p>Tested ${testSample.length} sample URLs</p>
+                    `;
+                    
+                    if (urlProblems.length > 0) {
+                        resultHTML += `
+                            <p>First problematic video: ${urlProblems[0].id}</p>
+                            <p>Errors: ${urlProblems[0].errors.join(', ')}</p>
+                        `;
+                    }
+                }
+                
+                urlResults.innerHTML = resultHTML;
+                displayProblems();
+                
+            } catch (error) {
+                urlResults.innerHTML = `
+                    <span class="fail">✗ FAIL</span> 
+                    URL validation failed: ${error.message}
+                `;
+            } finally {
+                urlTestBtn.disabled = false;
+            }
+        });
+        
+        // 5. Statistics & Analysis
+        statsTestBtn.addEventListener('click', () => {
+            statsTestBtn.disabled = true;
+            statsResults.innerHTML = 'Analyzing...';
+            
+            try {
+                if (videos.length === 0) {
+                    throw new Error('No videos loaded. Run the loading test first.');
+                }
+                
+                // Basic stats
+                const uploaders = [...new Set(videos.map(v => v.uploader))];
+                const oldestDate = new Date(Math.min(...videos.map(v => new Date(v.uploaded).getTime())));
+                const newestDate = new Date(Math.max(...videos.map(v => new Date(v.uploaded).getTime())));
+                
+                // Title length analysis
+                const titleLengths = videos.map(v => v.title.length);
+                const avgTitleLength = titleLengths.reduce((a, b) => a + b, 0) / titleLengths.length;
+                
+                // ID pattern analysis
+                const idPatterns = {};
+                videos.forEach(v => {
+                    const pattern = v.id.replace(/[a-zA-Z0-9]/g, 'X');
+                    idPatterns[pattern] = (idPatterns[pattern] || 0) + 1;
+                });
+                
+                // Display stats
+                statsResults.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Basic Statistics</h3>
+                            <p>Total Videos: ${videos.length}</p>
+                            <p>Unique Uploaders: ${uploaders.length}</p>
+                            <p>Date Range: ${oldestDate.toLocaleDateString()} to ${newestDate.toLocaleDateString()}</p>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Title Analysis</h3>
+                            <p>Average Title Length: ${avgTitleLength.toFixed(1)} chars</p>
+                            <p>Shortest Title: ${Math.min(...titleLengths)} chars</p>
+                            <p>Longest Title: ${Math.max(...titleLengths)} chars</p>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>ID Patterns</h3>
+                            ${Object.entries(idPatterns)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 3)
+                                .map(([pattern, count]) => 
+                                    `<p>${pattern}: ${count} videos (${(count/videos.length*100).toFixed(1)}%)</p>`
+                                ).join('')}
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                statsResults.innerHTML = `
+                    <span class="fail">✗ FAIL</span> 
+                    Analysis failed: ${error.message}
+                `;
+            } finally {
+                statsTestBtn.disabled = false;
+            }
+        });
+        
+        // Helper functions
+        function displayVideos(videosToDisplay) {
+            videosList.innerHTML = '';
+            
+            videosToDisplay.forEach(video => {
+                const videoEl = document.createElement('div');
+                videoEl.className = 'video-item';
+                videoEl.innerHTML = `
+                    <h4>${video.title}</h4>
+                    <p><strong>ID:</strong> ${video.id}</p>
+                    <p><strong>Uploader:</strong> ${video.uploader}</p>
+                    <p><strong>Uploaded:</strong> ${video.uploaded}</p>
+                    <p><strong>URL:</strong> <a href="${video.url}" target="_blank">${video.url}</a></p>
+                    <p><strong>Wayback:</strong> <a href="${video.waybackurl}" target="_blank">${video.waybackurl}</a></p>
+                `;
+                videosList.appendChild(videoEl);
+            });
+        }
+        
+        function displayProblems() {
+            problemsList.innerHTML = '';
+            
+            if (problems.length === 0) {
+                problemsList.innerHTML = '<p>No problems detected.</p>';
+                return;
+            }
+            
+            // Group problems by type
+            const groupedProblems = problems.reduce((acc, problem) => {
+                if (!acc[problem.type]) {
+                    acc[problem.type] = [];
+                }
+                acc[problem.type].push(problem);
+                return acc;
+            }, {});
+            
+            // Display grouped problems
+            for (const [type, items] of Object.entries(groupedProblems)) {
+                const typeEl = document.createElement('div');
+                typeEl.className = 'video-item';
+                typeEl.innerHTML = `<h3>${type} (${items.length})</h3>`;
+                
+                const examplesEl = document.createElement('div');
+                examplesEl.style.marginTop = '10px';
+                
+                items.slice(0, 3).forEach(item => {
+                    const exEl = document.createElement('div');
+                    exEl.style.marginBottom = '5px';
+                    exEl.innerHTML = `<strong>${item.video || 'Unknown'}:</strong> ${item.message}`;
+                    examplesEl.appendChild(exEl);
+                });
+                
+                if (items.length > 3) {
+                    const moreEl = document.createElement('div');
+                    moreEl.textContent = `...and ${items.length - 3} more`;
+                    examplesEl.appendChild(moreEl);
+                }
+                
+                typeEl.appendChild(examplesEl);
+                problemsList.appendChild(typeEl);
+            }
+        }
+        
+        // Tab functionality
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons and content
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding content
+                button.classList.add('active');
+                const tabId = button.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+        
+        // Initialize by running the load test automatically
+        loadTestBtn.click();
+    })();
+    </script>
+</body>
+</html>
