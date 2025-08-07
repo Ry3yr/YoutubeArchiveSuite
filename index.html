@@ -272,7 +272,8 @@
     localUrl.searchParams.set('_', Date.now());
     let res = await fetch(localUrl.toString(), { cache: 'no-store' });
     if (!res.ok) {
-      localUrl = new URL('./videos.json', '.');
+      //localUrl = new URL('./videos.json', '.');
+      localUrl = new URL('videos.json', '.');
       localUrl.searchParams.set('_', Date.now());
       res = await fetch(localUrl.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error('Both local attempts failed');
