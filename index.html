@@ -1,7 +1,4 @@
 <a target="_blank" href="https://codeberg.org/alceawisteria/YoutubeArchiveSuite" style=color:lightgray>src</a>
-<details><summary>debug</summary>
-<a target="_blank" href="https://alceawis.de/other/extra/scripts/fakesocialmedia/commentload.html?number=4000&text=%F0%92%90%ABI%20changed%20%20%20%20%20%7B%0D%0A%20%20%20%20%20%20" style=color:blue>Loading issues with long video titles</a>
-</details>
 
 
 <!DOCTYPE html>
@@ -145,13 +142,41 @@
 
   <div id="videos"></div>
   <div id="error"></div>
-
 <script>
 (async () => {
   const errorEl = document.getElementById('error');
   const videosEl = document.getElementById('videos');
   const searchInput = document.getElementById('search');
   const checkLinksButton = document.getElementById('check-links');
+
+  // Function to check for escaped slashes and show warnings
+  function checkAndWarnForEscapedSlashes(url, videoId) {
+    if (url && url.includes('\\/')) {
+      console.warn(`Escaped slashes detected in URL for video ${videoId}:`, url);
+      
+      // Create warning banner if not already present
+      if (!document.getElementById('escaped-slashes-warning')) {
+        const warningBanner = document.createElement('div');
+        warningBanner.id = 'escaped-slashes-warning';
+        warningBanner.style.cssText = `
+          background-color: #fff3cd;
+          color: #856404;
+          padding: 10px;
+          margin-bottom: 15px;
+          border-radius: 4px;
+          border-left: 4px solid #ffeeba;
+        `;
+        warningBanner.innerHTML = `
+          ⚠ Warning: Some video URLs contain escaped slashes (\\/). 
+          This may cause playback issues in some browsers.
+        `;
+        videosEl.parentNode.insertBefore(warningBanner, videosEl);
+      }
+      
+      return true;
+    }
+    return false;
+  }
 
   async function isReachable(url) {
     try {
@@ -169,7 +194,13 @@
 
   function renderVideos(list) {
     videosEl.innerHTML = '';
+    let hasEscapedSlashWarning = false;
+
     for (const v of list) {
+      // Check for escaped slashes in the waybackurl
+      const hasEscapedSlashes = checkAndWarnForEscapedSlashes(v.waybackurl, v.id);
+      if (hasEscapedSlashes) hasEscapedSlashWarning = true;
+
       const card = document.createElement('div');
       card.className = 'card';
       const videoId = `video-${v.id}`;
@@ -178,6 +209,7 @@
       card.innerHTML = `
         <div class="video-container">
           <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
+          ${hasEscapedSlashes ? '<div class="url-warning" style="color:red;font-size:12px;">⚠ URL contains escaped slashes</div>' : ''}
         </div>
         <h3>${v.title}</h3>
         <p>Uploader: ${v.uploader}</p>
@@ -227,6 +259,12 @@
         }
       });
     }
+
+    // Hide warning banner if no escaped slashes were found
+    if (!hasEscapedSlashWarning) {
+      const warningBanner = document.getElementById('escaped-slashes-warning');
+      if (warningBanner) warningBanner.remove();
+    }
   }
 
   try {
@@ -250,10 +288,9 @@
   }
 
   const params = new URLSearchParams(window.location.search);
-  const limit = parseInt(params.get('limit')) || 0; // Default to 0 (show all) if not specified
+  const limit = parseInt(params.get('limit')) || 0;
   const videoId = params.get('videoid');
   
-  // Create a copy of the full array or limited version
   const initialVideos = limit > 0 ? videos.slice(0, limit) : [...videos];
   
   searchInput.placeholder = `Search ${videos.length} videos...`;
@@ -262,7 +299,7 @@
 
   searchInput.addEventListener('input', () => {
     const query = searchInput.value.trim().toLowerCase();
-    let filtered = [...videos]; // Always start with full array
+    let filtered = [...videos];
     
     if (query) {
       filtered = videos.filter(v =>
@@ -272,7 +309,6 @@
       );
     }
     
-    // Apply limit only after filtering if specified
     if (limit > 0) filtered = filtered.slice(0, limit);
     
     renderVideos(filtered);
@@ -292,7 +328,6 @@
     checkLinksButton.disabled = false;
     checkLinksButton.textContent = '🔍 Check Direct Links';
     
-    // Re-render with current filter/limit
     const query = searchInput.value.trim().toLowerCase();
     let filtered = [...videos];
     if (query) {
