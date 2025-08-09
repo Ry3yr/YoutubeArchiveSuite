@@ -96,12 +96,9 @@
 </head>
 <body>
   <h1>Youtube Video Archive</h1>
-
   [<a target="_blank" href="backup.php" style=color:blue>⬆️Upload</a>]  
   <a target="_blank" href="list.html" style=color:blue>List</a> 
   [<a href="javascript:if(!window.location.href.includes('extendedsearch=true')){window.history.pushState({}, '', window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'extendedsearch=true');}">Enable RealtimeSearch</a>]
-
-
     <style>
         body{font-family:Arial,sans-serif;margin:20px}.video-links{list-style-type:none;padding:0}.video-links li{margin:10px 0}.video-links a{text-decoration:none;color:#007bff;font-size:16px}.video-links a:hover{text-decoration:underline}
     </style>
@@ -130,19 +127,54 @@
     fetchVideos();
 </script>
 
+<div id="search-container">
+  <input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
+</div>
 
+<div style="text-align:center; margin: 1rem;">
+  <button id="check-links">🔍 Check Direct Links</button>
+</div>
 
-  <div id="search-container">
-    <input type="text" id="search" placeholder="Search videos by title, uploader, or ID..." />
-  </div>
-
-  <div style="text-align:center; margin: 1rem;">
-    <button id="check-links">🔍 Check Direct Links</button>
-  </div>
-
-  <div id="videos"></div>
-  <div id="error"></div>
+<div id="videos"></div>
+<div id="error"></div>
 <script>
+// Ultra-robust JSON parser with multiple fallbacks
+function superParseJSON(jsonString) {
+  // First try standard parsing
+  try {
+    return JSON.parse(jsonString);
+  } catch (e1) {
+    console.warn("Standard parse failed, attempting cleanup:", e1);
+    
+    // Try removing BOM if present
+    try {
+      if (jsonString.charCodeAt(0) === 0xFEFF) {
+        return JSON.parse(jsonString.substring(1));
+      }
+    } catch (e2) {}
+    
+    // Try fixing common JSON issues
+    try {
+      // Fix escaped quotes
+      let fixed = jsonString.replace(/\\'/g, "'")
+                           .replace(/\\"/g, '"')
+                           .replace(/\\\//g, '/');
+      return JSON.parse(fixed);
+    } catch (e3) {
+      console.warn("Quote fixing failed, trying last resort:", e3);
+      
+      // Last resort - try eval (with safety check)
+      try {
+        if (jsonString.trim().startsWith("{") || jsonString.trim().startsWith("[")) {
+          return (new Function('return ' + jsonString))();
+        }
+      } catch (e4) {
+        throw new Error(`All JSON parsing attempts failed. Errors: ${e1.message}, ${e3.message}, ${e4.message}`);
+      }
+    }
+  }
+}
+
 (async () => {
   const errorEl = document.getElementById('error');
   const videosEl = document.getElementById('videos');
@@ -182,7 +214,7 @@
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { method: 'GET', signal: controller.signal });
+      const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
       clearTimeout(timeoutId);
       return res.ok || (res.status >= 300 && res.status < 400);
     } catch {
@@ -190,11 +222,13 @@
     }
   }
 
-  let videos = [];
+  let allVideos = [];  // Stores ALL videos (unfiltered, unlimited)
+  let displayedVideos = [];  // Stores currently displayed videos (may be limited/filtered)
 
   function renderVideos(list) {
     videosEl.innerHTML = '';
     let hasEscapedSlashWarning = false;
+    displayedVideos = list;
 
     for (const v of list) {
       // Check for escaped slashes in the waybackurl
@@ -211,17 +245,17 @@
           <video id="${videoId}" src="${v.waybackurl}" controls preload="metadata"></video>
           ${hasEscapedSlashes ? '<div class="url-warning" style="color:red;font-size:12px;">⚠ URL contains escaped slashes</div>' : ''}
         </div>
-        <h3>${v.title}</h3>
-        <p>Uploader: ${v.uploader}</p>
+        <h3>${v.title || 'Untitled'}</h3>
+        <p>Uploader: ${v.uploader || 'Unknown'}</p>
         <p>ID: ${v.id ?? 'N/A'}</p>
-        <p>Uploaded: ${new Date(v.uploaded).toLocaleString()}</p>
+        <p>Uploaded: ${v.uploaded ? new Date(v.uploaded).toLocaleString() : 'Unknown date'}</p>
         <div class="links">
-          <a href="${v.url}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
-          <a href="${v.waybackurl}" target="_blank">Wayback</a><a target="_blank" href="waybackurlcheck.html?waybackurl=${v.waybackurl}" style="color:green">(?)</a>
-          <a href="javascript:void(0);" class="youtube-link" data-id="${v.id}">YouTube</a>
-          <a href="https://web.archive.org/web/2oe_/http://wayback-fakeurl.archive.org/yt/${v.id}" target="_blank"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT61taAw7gmjapOgSz2nugoCrazkCg42il25A&s" width="20px"></a>
-          <a href="https://preservetube.com/watch?v=${v.id}" target="_blank"><img src="https://i.ibb.co/SXjxP6v6/Screenshot-20250625-224044-Brave.png" width="20px"></a>
-          <a href="https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4" target="_blank"><img src="https://media.technologycounter.com/vendors/software-products/software-logo/hidrive.jpg" width="20px"></a>
+          <a href="${v.url || '#'}" target="_blank" class="direct-link ${unreachableClass}">Direct</a>
+          <a href="${v.waybackurl || '#'}" target="_blank">Wayback</a><a target="_blank" href="waybackurlcheck.html?waybackurl=${v.waybackurl || ''}" style="color:green">(?)</a>
+          <a href="javascript:void(0);" class="youtube-link" data-id="${v.id || ''}">YouTube</a>
+          ${v.id ? `<a href="https://web.archive.org/web/2oe_/http://wayback-fakeurl.archive.org/yt/${v.id}" target="_blank"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT61taAw7gmjapOgSz2nugoCrazkCg42il25A&s" width="20px"></a>` : ''}
+          ${v.id ? `<a href="https://preservetube.com/watch?v=${v.id}" target="_blank"><img src="https://i.ibb.co/SXjxP6v6/Screenshot-20250625-224044-Brave.png" width="20px"></a>` : ''}
+          ${v.id ? `<a href="https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4" target="_blank"><img src="https://media.technologycounter.com/vendors/software-products/software-logo/hidrive.jpg" width="20px"></a>` : ''}
         </div>
         <div class="current-link"></div>
         <button class="toggle-src" data-id="#">🔁 Switch</button>
@@ -233,32 +267,41 @@
       const videoEl = card.querySelector('video');
       const currentLinkContainer = card.querySelector('.current-link');
       const sources = [
-        { url: `fin/${v.id}.mp4`, label: '🔁 Switch' },
-        { url: `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4`, label: '🔁 Switch' },
-        { url: v.waybackurl, label: '🔁 Switch' },
-      ];
-      let currentIndex = 0;
-      toggleBtn.addEventListener('click', () => {
-        currentIndex = (currentIndex + 1) % sources.length;
-        videoEl.src = sources[currentIndex].url;
-        toggleBtn.textContent = sources[currentIndex].label;
-        let currentLink = currentLinkContainer.querySelector('a');
-        if (!currentLink) {
-          currentLink = document.createElement('a');
-          currentLink.target = '_blank';
-          currentLink.textContent = '🔗 Current Link';
-          currentLinkContainer.appendChild(currentLink);
-        }
-        currentLink.href = sources[currentIndex].url;
-        if (sources[currentIndex].url.includes("fin")) {
-          currentLink.textContent = '🔗 Direct Link';
-        } else if (sources[currentIndex].url.includes("hidrive")) {
-          currentLink.textContent = '🔗 Hidrive Link';
-        } else if (sources[currentIndex].url.includes("web.archive")) {
-          currentLink.textContent = '🔗 Archive Link';
-        }
-      });
+        { url: v.id ? `fin/${v.id}.mp4` : '', label: '🔁 Switch' },
+        { url: v.id ? `https://alcea-wisteria.de/hidrive/hidrive.php?path=/public/ytarchive/${v.id}.mp4` : '', label: '🔁 Switch' },
+        { url: v.waybackurl || '', label: '🔁 Switch' },
+      ].filter(source => source.url); // Filter out empty URLs
+      
+      if (sources.length > 0) {
+        let currentIndex = 0;
+        toggleBtn.addEventListener('click', () => {
+          currentIndex = (currentIndex + 1) % sources.length;
+          videoEl.src = sources[currentIndex].url;
+          toggleBtn.textContent = sources[currentIndex].label;
+          let currentLink = currentLinkContainer.querySelector('a');
+          if (!currentLink) {
+            currentLink = document.createElement('a');
+            currentLink.target = '_blank';
+            currentLink.textContent = '🔗 Current Link';
+            currentLinkContainer.appendChild(currentLink);
+          }
+          currentLink.href = sources[currentIndex].url;
+          if (sources[currentIndex].url.includes("fin")) {
+            currentLink.textContent = '🔗 Direct Link';
+          } else if (sources[currentIndex].url.includes("hidrive")) {
+            currentLink.textContent = '🔗 Hidrive Link';
+          } else if (sources[currentIndex].url.includes("web.archive")) {
+            currentLink.textContent = '🔗 Archive Link';
+          }
+        });
+      } else {
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = 'No sources';
+      }
     }
+
+    // Update search placeholder with TOTAL count (not limited count)
+    searchInput.placeholder = `Search ${allVideos.length} videos...`;
 
     // Hide warning banner if no escaped slashes were found
     if (!hasEscapedSlashWarning) {
@@ -267,49 +310,73 @@
     }
   }
 
-  try {
-    let localUrl = new URL('videos.json', window.location.href);
-    localUrl.searchParams.set('_', Date.now());
-    let res = await fetch(localUrl.toString(), { cache: 'no-store' });
-    if (!res.ok) {
-      //localUrl = new URL('./videos.json', '.');
-      localUrl = new URL('videos.json', '.');
-      localUrl.searchParams.set('_', Date.now());
-      res = await fetch(localUrl.toString(), { cache: 'no-store' });
-      if (!res.ok) throw new Error('Both local attempts failed');
+  async function loadVideos() {
+    const sources = [
+      'videos.json',
+      './videos.json',
+      'https://ry3yr.github.io/videos.json',
+    ];
+    
+    for (const source of sources) {
+      try {
+        const url = new URL(source, window.location.href);
+        url.searchParams.set('_', Date.now());
+        const res = await fetch(url.toString(), { cache: 'no-store' });
+        
+        if (res.ok) {
+          const text = await res.text();
+          try {
+            allVideos = superParseJSON(text);
+            if (Array.isArray(allVideos)) {
+              console.log(`Successfully loaded ${allVideos.length} videos from ${source}`);
+              return true;
+            } else {
+              console.warn(`Data from ${source} is not an array`);
+            }
+          } catch (parseError) {
+            console.warn(`Failed to parse JSON from ${source}:`, parseError);
+          }
+        }
+      } catch (fetchError) {
+        console.warn(`Failed to fetch from ${source}:`, fetchError);
+      }
     }
-    videos = await res.json();
-  } catch {
-    const res = await fetch('https://ry3yr.github.io/videos.json', { cache: 'no-store' });
-    if (!res.ok) {
-      errorEl.textContent = 'Failed to load videos from both sources.';
-      return;
-    }
-    videos = await res.json();
+    
+    errorEl.textContent = 'Failed to load videos from all available sources.';
+    return false;
   }
+
+  const success = await loadVideos();
+  if (!success) return;
 
   const params = new URLSearchParams(window.location.search);
   const limit = parseInt(params.get('limit')) || 0;
   const videoId = params.get('videoid');
   
-  const initialVideos = limit > 0 ? videos.slice(0, limit) : [...videos];
+  // Ensure allVideos is always an array
+  if (!Array.isArray(allVideos)) allVideos = [];
   
-  searchInput.placeholder = `Search ${videos.length} videos...`;
-
+  // Initialize with all videos (limit will be applied in render)
+  displayedVideos = [...allVideos];
+  
+  // Apply limit if specified (but keep search count showing total)
+  const initialVideos = limit > 0 ? allVideos.slice(0, limit) : [...allVideos];
+  
   renderVideos(initialVideos);
 
   searchInput.addEventListener('input', () => {
     const query = searchInput.value.trim().toLowerCase();
-    let filtered = [...videos];
+    let filtered = [...allVideos];  // Always search through ALL videos
     
     if (query) {
-      filtered = videos.filter(v =>
+      filtered = allVideos.filter(v =>
         (v.title?.toLowerCase().includes(query)) ||
         (v.uploader?.toLowerCase().includes(query)) ||
         (v.id?.toString().toLowerCase().includes(query))
       );
     }
     
+    // Apply limit to filtered results (but search count remains total)
     if (limit > 0) filtered = filtered.slice(0, limit);
     
     renderVideos(filtered);
@@ -323,23 +390,31 @@
   checkLinksButton.addEventListener('click', async () => {
     checkLinksButton.disabled = true;
     checkLinksButton.textContent = '⏳ Checking...';
-    for (const v of videos) {
-      v.directOk = await isReachable(v.url);
+    
+    // Process in batches to avoid overwhelming the browser
+    const batchSize = 5;
+    for (let i = 0; i < allVideos.length; i += batchSize) {
+      const batch = allVideos.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (v) => {
+        v.directOk = await isReachable(v.url);
+      }));
+      
+      // Update UI after each batch
+      const currentFilter = searchInput.value.trim().toLowerCase();
+      let filtered = [...allVideos];
+      if (currentFilter) {
+        filtered = allVideos.filter(v =>
+          (v.title?.toLowerCase().includes(currentFilter)) ||
+          (v.uploader?.toLowerCase().includes(currentFilter)) ||
+          (v.id?.toString().toLowerCase().includes(currentFilter))
+        );
+      }
+      if (limit > 0) filtered = filtered.slice(0, limit);
+      renderVideos(filtered);
     }
+    
     checkLinksButton.disabled = false;
     checkLinksButton.textContent = '🔍 Check Direct Links';
-    
-    const query = searchInput.value.trim().toLowerCase();
-    let filtered = [...videos];
-    if (query) {
-      filtered = videos.filter(v =>
-        (v.title?.toLowerCase().includes(query)) ||
-        (v.uploader?.toLowerCase().includes(query)) ||
-        (v.id?.toString().toLowerCase().includes(query))
-      );
-    }
-    if (limit > 0) filtered = filtered.slice(0, limit);
-    renderVideos(filtered);
   });
 
   const isExtendedSearchActive = params.has('extendedsearch') || localStorage.getItem('extendedsearch') === 'true';
@@ -365,7 +440,7 @@
       const query = searchInput.value.trim().toLowerCase();
       suggestionList.innerHTML = '';
       if (query) {
-        const filtered = videos.filter(v => v.title?.toLowerCase().includes(query));
+        const filtered = allVideos.filter(v => v.title?.toLowerCase().includes(query));
         filtered.forEach(v => {
           const item = document.createElement('li');
           item.style.padding = '0.5rem';
@@ -390,7 +465,14 @@
 document.addEventListener('click', function(event) {
   if (event.target && event.target.classList.contains('youtube-link')) {
     const videoId = event.target.getAttribute('data-id');
-    const videoContainer = event.target.closest('.card').querySelector('.video-container');
+    if (!videoId) return;
+    
+    const card = event.target.closest('.card');
+    if (!card) return;
+    
+    const videoContainer = card.querySelector('.video-container');
+    if (!videoContainer) return;
+    
     const iframe = document.createElement('iframe');
     iframe.width = '100%';
     iframe.height = '315';
@@ -405,5 +487,3 @@ document.addEventListener('click', function(event) {
   }
 });
 </script>
-</body>
-</html>
