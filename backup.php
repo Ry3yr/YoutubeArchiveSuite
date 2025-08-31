@@ -1,6 +1,6 @@
 <?php
 $correct_username = "admin";
-$correct_password = "4869"; // Use a strong password for production
+$correct_password = ""; // Use a strong password for production
 session_start();
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
 echo "Welcome, you are logged in!<hr>";
