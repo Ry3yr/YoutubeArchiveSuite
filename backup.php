@@ -1,6 +1,32 @@
-
-
-
+<?php
+$correct_username = "admin";
+$correct_password = "4869"; // Use a strong password for production
+session_start();
+if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+echo "Welcome, you are logged in!<hr>";
+} else {
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+$username = $_POST['username'];
+$password = $_POST['password'];
+if ($username === $correct_username && $password === $correct_password) {
+$_SESSION['logged_in'] = true;
+echo "Login successful. Welcome!";
+header("Location: " . $_SERVER['PHP_SELF']);
+exit;
+} else {
+echo "Invalid username or password.<hr>";
+}
+}
+echo '<form method="post">
+<label for="username">Username:</label>
+<input type="text" id="username" name="username" value="admin" required><br>
+<label for="password">Password:</label>
+<input type="password" id="password" name="password" required><br>
+<button type="submit">Login</button>
+</form>';
+exit();
+}
+?>
 <style>summary {list-style: none;}summary::-webkit-details-marker {display: none;}</style><details>
 <summary>...</summary>
 <script>
@@ -8,11 +34,12 @@ function stringToArrayBuffer(e){return(new TextEncoder).encode(e)}function array
 </script>
 <form onsubmit="handleDecrypt(event)">
 <input type="password" id="password" required>
-<textarea id="encryptedOutput" rows="10" cols="50" style="display: none;">4062d585bc375473ec8b0cf72bb04ff8d1b2c812de5ae7903eaf048383df4033c93f847da153b6ab08cf8621149af21ed1bb618decc98413fe4929a7a8bb77f09961ce495d9bf8697e4c4326ff32b9a5d91e5c9c8fdaa94793d06ce3618f04d90c38413cddb014bebd4bd1bbb0444500d0ba37d8267bedbce34e4a1c72eb9a008e6c970c9f55717cf5b719ca84ec300cc1d3055ba52a65f2818646220da577</textarea>
+<textarea id="encryptedOutput" rows="10" cols="50" style="display: none;">4062d585bc375473ec8b0cf72bb04ff8d1b2c812de5ae7903eaf048383df4033c93f847da153b6ab08cf8621149af21ed1bb618decc98413fe4929a7a8bb77f09961ce495d9bf8697e4c4326ff32b9a5d91e5c9c8fdaa94793d06ca1d1cd8414ef33ec29c9ebcbe58dacf2dee3618f04d90c38413cddb014bebd4bd1bbb0444500d0ba37d8267bedbce34e4a1c72eb9a008e6c970c9f55717cf5b719ca84ec300cc1d3055ba52a65f2818646220da577</textarea>
 <input type="submit" value="OpenSesame">
 </form><div><div id="decryptedOutput"></div></div>
-
 <a target="_blank" href="backupmanual.php" style=color:blue>Manual</a></details>
+
+
 
 
 
@@ -207,11 +234,11 @@ function get_wayback_timestamped_url(string $url): ?string {
 <script>
 function checkUrl() {
     const urlField = document.getElementById('video_url');
-    const filenameField = document.getElementById('filename');
+    //const filenameField = document.getElementById('filename');
 
     if (urlField.value) {
         const url = new URL(urlField.value);
-        const fileName = url.pathname.split('/').pop();
+        //const fileName = url.pathname.split('/').pop();
 
         if (fileName) {
             filenameField.value = fileName;
@@ -224,8 +251,83 @@ function checkUrl() {
 </body>
 </html>
 
-
-
-
 <!--move-mp4-2subdir-->
 <a target="_blank" href="mp4move.php" style=color:blue>Move mp4</a>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  console.log('✅ DOM fully loaded');
+
+  const filenameInput = document.getElementById('filename');
+  const extractBtn = document.querySelector('button[onclick="extractYouTubeId()"]'); // Select the button by onclick
+  if (!filenameInput || !extractBtn) {
+    console.error('❌ Input or button not found in DOM');
+    return;
+  }
+
+  // Fetch videos.json
+  fetch('videos.json')
+    .then(response => {
+      console.log('📡 Fetching videos.json...');
+      if (!response.ok) throw new Error('Failed to load videos.json');
+      return response.json();
+    })
+    .then(data => {
+      if (!Array.isArray(data)) throw new Error('videos.json is not an array');
+      console.log(`✅ Loaded ${data.length} videos from videos.json`);
+      setupInputListener(data);
+    })
+    .catch(error => {
+      console.error('❌ Error loading videos.json:', error);
+    });
+
+  function setupInputListener(videos) {
+    filenameInput.addEventListener('input', () => {
+      const inputValue = filenameInput.value.trim();
+      console.log(`✏️ Input changed: "${inputValue}"`);
+
+      if (inputValue === '') {
+        filenameInput.style.borderColor = '#ccc';
+        filenameInput.title = '';
+        extractBtn.textContent = 'Extract Video ID';
+        extractBtn.disabled = false; // Enable the button
+        return;
+      }
+
+      console.log(`Checking input against video IDs...`);
+
+      let match = null;
+
+      // If the input has ".mp4", strip it and compare the part before it
+      if (inputValue.endsWith('.mp4')) {
+        const baseId = inputValue.slice(0, -4);  // Remove the ".mp4" part
+        console.log(`🔍 Checking base ID: "${baseId}"`);
+        match = videos.find(video => video.id === baseId);
+      } else {
+        match = videos.find(video => video.id === inputValue);
+      }
+
+      if (match) {
+        console.log(`✅ Match found:`, match);
+        filenameInput.style.borderColor = 'red';
+        filenameInput.title = `Match: ${match.id} - ${match.title}`;
+
+        // Change button text to "ALREADY EXISTS!" and disable the button
+        extractBtn.textContent = 'ALREADY EXISTS!';
+        extractBtn.disabled = true;
+      } else {
+        console.warn(`⚠️ No match for "${inputValue}"`);
+        filenameInput.style.borderColor = 'green';
+        filenameInput.title = 'No matching ID found in videos.json';
+
+        // Reset button text and enable the button if no match
+        extractBtn.textContent = 'Extract Video ID';
+        extractBtn.disabled = false;
+      }
+    });
+  }
+});
+
+</script>
+
