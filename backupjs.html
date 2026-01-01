@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YouTube → JSON → Wayback Helper</title>
+<style>
+    body { font-family: sans-serif; max-width: 900px; margin: 20px; }
+    input, button, textarea { width: 100%; margin: 6px 0; padding: 8px; }
+    button { cursor: pointer; }
+    pre { background: #111; color: #0f0; padding: 10px; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h2>YouTube JSON Generator</h2>
+
+<input id="videoInput" placeholder="YouTube URL or Video ID">
+
+<button onclick="fetchVideo()">Fetch video details</button>
+
+<div id="status"></div>
+
+<h3>Resulting JSON</h3>
+<pre id="output"></pre>
+
+<button id="waybackBtn" disabled onclick="openWayback()">Save to Wayback Archive</button>
+
+<textarea id="waybackInput" placeholder="Paste Wayback URL here" disabled></textarea>
+<button id="applyWaybackBtn" disabled onclick="applyWayback()">Apply Wayback Link</button>
+
+<button id="mergeBtn" disabled onclick="mergeAndDownload()">Merged – Download videos.json</button>
+<button id="downloadCurrentBtn" style="display: none;" onclick="downloadCurrentJson()">Download Current JSON</button>
+
+<script>
+let currentEntry = null;
+let videosJsonAccessible = false;
+
+function extractVideoId(input) {
+    const m = input.match(/([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+}
+async function checkVideosJsonAccessibility() {
+    try {
+        const res = await fetch('/ytarchive/videos.json', { method: 'HEAD' });
+        console.log('Response status:', res.status);
+        console.log('Response headers:', [...res.headers]);
+        if (res.ok) {
+            videosJsonAccessible = true;
+            console.log("videos.json is accessible.");
+        } else {
+            console.log("videos.json not accessible:", res.statusText);
+        }
+    } catch (error) {
+        console.log("Error fetching videos.json:", error);
+        videosJsonAccessible = false;
+    } finally {
+        toggleDownloadCurrentButton();
+    }
+}
+function toggleDownloadCurrentButton() {
+    if (!videosJsonAccessible) {
+        document.getElementById('downloadCurrentBtn').style.display = 'inline-block';
+    }
+}
+async function fetchVideo() {
+    const apiKey = new URLSearchParams(location.search).get("apikey");
+    if (!apiKey) {
+        alert("Missing API key (?apikey=)");
+        return;
+    }
+    const input = document.getElementById("videoInput").value.trim();
+    const videoId = extractVideoId(input);
+    if (!videoId) {
+        alert("Invalid YouTube URL or ID");
+        return;
+    }
+    document.getElementById("status").textContent = "Fetching video info…";
+    const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`
+    );
+    const data = await res.json();
+    if (!data.items || !data.items.length) {
+        alert("Video not found");
+        return;
+    }
+    const v = data.items[0];
+    const mp4Url = `https://alcea-wisteria.de/ytarchive/${videoId}.mp4`;
+    currentEntry = {
+        id: videoId,
+        title: v.snippet.title,
+        uploader: v.snippet.channelTitle,
+        file: `${videoId}.mp4`,
+        uploaded: v.snippet.publishedAt,
+        url: mp4Url,
+        waybackurl: ""
+    };
+    document.getElementById("output").textContent =
+        JSON.stringify(currentEntry, null, 4);
+    checkMp4Exists(mp4Url);
+}
+async function checkMp4Exists(url) {
+    document.getElementById("status").textContent = "Checking MP4 availability…";
+    try {
+        const res = await fetch(url, { method: "HEAD" });
+        if (res.ok) {
+            document.getElementById("status").textContent =
+                "MP4 exists. You can archive it.";
+            document.getElementById("waybackBtn").disabled = false;
+            document.getElementById("waybackInput").disabled = false;
+            document.getElementById("applyWaybackBtn").disabled = false;
+        } else {
+            document.getElementById("status").textContent =
+                "MP4 not found on server.";
+        }
+    } catch {
+        document.getElementById("status").textContent =
+            "Could not verify MP4 (CORS or network issue).";
+    }
+}
+
+function openWayback() {
+    const saveUrl = `https://web.archive.org/save/${currentEntry.url}`;
+    window.open(saveUrl, "_blank");
+}
+function applyWayback() {
+    const wb = document.getElementById("waybackInput").value.trim();
+    if (!wb.startsWith("https://web.archive.org/")) {
+        alert("Invalid Wayback URL");
+        return;
+    }
+    currentEntry.waybackurl = wb;
+    document.getElementById("output").textContent =
+        JSON.stringify(currentEntry, null, 4);
+    document.getElementById("mergeBtn").disabled = false;
+}
+async function mergeAndDownload() {
+    try {
+        const res = await fetch('/ytarchive/videos.json');
+        if (!res.ok) {
+            alert('Could not fetch existing videos.json');
+            return;
+        }
+        const existingVideos = await res.json();
+        existingVideos.push(currentEntry);
+        const blob = new Blob([JSON.stringify(existingVideos, null, 4)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'videos.json';
+        a.click();
+        alert("Merged video details and downloaded new videos.json.");
+    } catch (error) {
+        console.error("Error merging videos:", error);
+        alert("An error occurred while merging videos.");
+    }
+}
+function downloadCurrentJson() {
+    const currentJsonBlob = new Blob([JSON.stringify([currentEntry], null, 4)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(currentJsonBlob);
+    a.download = 'videos.json';
+    a.click();
+}
+  
+checkVideosJsonAccessibility();
+</script>
+
+</body>
+</html>
