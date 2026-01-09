@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Player</title>
+    <style>
+        body{font-family:Arial,sans-serif;max-width:1200px;margin:0 auto;padding:20px;background:#f5f5f5}.container{background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}.video-container{position:relative;width:100%;padding-bottom:56.25%;height:0;margin-bottom:20px;background:#000}.video-container iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}.link-container{margin:20px 0;padding:15px;background:#f8f9fa;border-left:4px solid #007bff;border-radius:4px}.link-container a{color:#007bff;text-decoration:none;font-size:16px;word-break:break-all}.link-container a:hover{text-decoration:underline}.status{display:inline-block;padding:5px 10px;border-radius:4px;font-size:14px;margin-left:10px}.status.available{background:#d4edda;color:#155724}.status.unavailable{background:#f8d7da;color:#721c24}.loading{color:#6c757d;font-style:italic}.error{padding:10px;background:#f8d7da;color:#721c24;border-radius:4px;margin:10px 0}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Player</h1>
+        
+        <div id="videoWrapper" class="video-container" style="display:none;">
+            <iframe id="videoFrame" allowfullscreen></iframe>
+        </div>
+        
+        <div id="linkContainer" class="link-container" style="display:none;">
+            <strong>Stream URL:</strong><br>
+            <a id="streamLink" target="_blank"></a>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Get video path from URL parameter
+        function getVideoPath() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('vidpath');
+        }
+
+        // Check if URL is accessible
+        async function checkURL(url) {
+            try {
+                const response = await fetch(url, { 
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                // With no-cors, we can't read response status but if it doesn't throw, request went through
+                return true;
+            } catch (error) {
+                console.log('Access check failed:', error);
+                return false;
+            }
+        }
+
+        // Create stream URL
+        function createStreamURL(vidpath) {
+            const baseURL = 'https://127.0.0.1:8080/2025-06-28-FileServerUpload/2025-06-28-MultiUpload(SFTP-FTP)/streamtplink.php';
+            const params = new URLSearchParams({
+                path: vidpath,
+                username: 'anonymous',
+                password: 'anonymous',
+                anonymous: '1',
+                direct: '1'
+            });
+            return `${baseURL}?${params.toString()}`;
+        }
+
+        // Main function
+        async function initializePlayer() {
+            const statusDiv = document.getElementById('status');
+            const vidpath = getVideoPath();
+            
+            if (!vidpath) {
+                statusDiv.innerHTML = '<div class="error">No video path provided. Add ?vidpath=/your/video/path.mp4 to URL</div>';
+                return;
+            }
+            
+            statusDiv.innerHTML = `<div class="loading">Checking video availability for: ${vidpath}</div>`;
+            
+            // Clean vidpath - remove leading slash if present
+            const cleanVidpath = vidpath.startsWith('/') ? vidpath.substring(1) : vidpath;
+            const cardURL = `http://192.168.0.1/card/${cleanVidpath}`;
+            const streamURL = createStreamURL(vidpath);
+            
+            // Check if card URL is accessible
+            const isAccessible = await checkURL(cardURL);
+            
+            if (isAccessible) {
+                // Show video player
+                document.getElementById('videoWrapper').style.display = 'block';
+                document.getElementById('videoFrame').src = cardURL;
+                
+                // Show stream link
+                document.getElementById('linkContainer').style.display = 'block';
+                document.getElementById('streamLink').href = streamURL;
+                document.getElementById('streamLink').textContent = streamURL;
+                
+                statusDiv.innerHTML = `<span class="status available">✓ Video available and playing</span>`;
+            } else {
+                // Show video player
+                document.getElementById('videoWrapper').style.display = 'block';
+                document.getElementById('videoFrame').src = cardURL;
+                
+                // Show stream link
+                document.getElementById('linkContainer').style.display = 'block';
+                document.getElementById('streamLink').href = streamURL;
+                document.getElementById('streamLink').textContent = streamURL;
+                // Show only the stream link as alternative
+                document.getElementById('linkContainer').style.display = 'block';
+                document.getElementById('streamLink').href = streamURL;
+                document.getElementById('streamLink').textContent = streamURL;
+                
+                statusDiv.innerHTML = `<div class="error">
+                    <span class="status unavailable">✗ Cannot access card URL: ${cardURL}</span><br>
+                    Alternative stream link is available below.
+                </div>`;
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('DOMContentLoaded', initializePlayer);
+    </script>
+</body>
+</html>
